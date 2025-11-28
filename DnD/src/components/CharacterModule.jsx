@@ -3,22 +3,22 @@ import useGameStore from '../store/useGameStore';
 import Card from './Card';
 import { Shield, Heart, Activity } from 'lucide-react';
 
+const StatBlock = ({ label, value }) => {
+  const mod = Math.floor((value - 10) / 2);
+  const modStr = mod >= 0 ? `+${mod}` : mod;
+
+  return (
+    <div className="flex flex-col items-center bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+      <span className="text-xs font-bold text-slate-400 uppercase">{label}</span>
+      <span className="text-xl font-bold text-white">{value}</span>
+      <span className="text-xs text-dnd-accent font-mono">{modStr}</span>
+    </div>
+  );
+};
+
 const CharacterModule = () => {
   const { character } = useGameStore();
   const { hp, ac, stats, initiative } = character;
-
-  const StatBlock = ({ label, value }) => {
-    const mod = Math.floor((value - 10) / 2);
-    const modStr = mod >= 0 ? `+${mod}` : mod;
-    
-    return (
-      <div className="flex flex-col items-center bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-        <span className="text-xs font-bold text-slate-400 uppercase">{label}</span>
-        <span className="text-xl font-bold text-white">{value}</span>
-        <span className="text-xs text-dnd-accent font-mono">{modStr}</span>
-      </div>
-    );
-  };
 
   return (
     <Card title="Character Sheet" className="md:col-span-1 md:row-span-2">
