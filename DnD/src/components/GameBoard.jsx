@@ -5,22 +5,38 @@ import CharacterModule from './CharacterModule';
 import LogModule from './LogModule';
 import ActionModule from './ActionModule';
 import DiceModule from './DiceModule';
+import CombatTracker from './CombatTracker';
 import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { gameMode, addToLog, rollDice } = useGameStore();
+  const { combat, performPlayerAttack, addToLog } = useGameStore();
 
   const handleAction = (actionType) => {
-    // Basic Combat Logic Hook
-    if (actionType === 'attack') {
-      const { roll, total } = rollDice(20, 5); // Mock +5 to hit
-      addToLog({ 
-        text: `You swing your weapon! Rolled ${roll} + 5 = ${total} to hit.`,
-        type: 'combat'
-      });
+    if (combat.active) {
+       // Combat Logic
+       const currentPlayer = combat.turnOrder[combat.currentTurnIndex];
+       if (currentPlayer.type !== 'player') {
+         addToLog({ text: "It's not your turn!", type: 'system' });
+         return;
+       }
+
+       if (actionType === 'attack') {
+          // Auto-target the first living enemy for now
+          // Future: Add target selection UI
+          const target = combat.turnOrder.find(c => c.type !== 'player' && !c.isDead);
+          if (target) {
+            performPlayerAttack(target.id);
+          } else {
+            addToLog({ text: "No valid targets!", type: 'system' });
+          }
+       } else {
+          addToLog({ text: `Action ${actionType} not implemented yet.`, type: 'system' });
+       }
+
     } else {
-        addToLog({ text: `Action ${actionType} performed.`, type: 'system' });
+       // Non-combat interaction (if any)
+       addToLog({ text: "You can't do that right now.", type: 'system' });
     }
   };
 
@@ -28,6 +44,7 @@ const GameBoard = () => {
     <DashboardLayout>
       <CharacterModule />
       <LogModule />
+      {combat.active ? <CombatTracker /> : null}
       <ActionModule 
         onAction={handleAction} 
         narrativeChoices={choices}
