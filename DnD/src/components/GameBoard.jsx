@@ -9,7 +9,7 @@ import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { gameMode, addToLog, rollDice } = useGameStore();
+  const { addToLog, rollDice } = useGameStore();
 
   const handleAction = (actionType) => {
     // Basic Combat Logic Hook
