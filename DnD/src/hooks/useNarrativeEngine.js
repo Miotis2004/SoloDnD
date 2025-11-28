@@ -16,13 +16,9 @@ const useNarrativeEngine = () => {
   } = useGameStore();
   
   // Derive choices directly from the current node ID and data
+  // This avoids storing redundant state and eliminates the setState-in-effect warning
   const node = adventureData.nodes[currentNodeId];
   const choices = node?.choices || [];
-
-  // Flatten monster data for easier lookup
-  const allMonsters = React.useMemo(() => {
-    return Object.values(monsterData).reduce((acc, cat) => ({...acc, ...cat}), {});
-  }, []);
 
   useEffect(() => {
     if (!node) {
@@ -38,8 +34,8 @@ const useNarrativeEngine = () => {
 
     // 3. Handle Node Type
     if (node.type === 'combat') {
-      // Look up enemies from flattened list
-      const enemies = (node.enemies || []).map(id => allMonsters[id]).filter(Boolean);
+      // Look up enemies
+      const enemies = (node.enemies || []).map(id => monsterData[id]).filter(Boolean);
 
       if (enemies.length > 0) {
         startCombat(enemies, node.on_victory, node.on_defeat);
@@ -51,7 +47,7 @@ const useNarrativeEngine = () => {
       setGameMode('narrative');
     }
 
-  }, [currentNodeId, addToLog, setGameMode, node, startCombat]);
+  }, [currentNodeId, addToLog, setGameMode, node]);
 
   const handleChoice = (choice) => {
     // Handle Skill Checks
