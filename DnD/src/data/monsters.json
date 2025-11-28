@@ -1,0 +1,30 @@
+{
+  "goblin_archer": {
+    "name": "Goblin Archer",
+    "hp": 7,
+    "ac": 15,
+    "initiativeBonus": 2,
+    "attacks": [
+      {
+        "name": "Shortbow",
+        "bonus": 4,
+        "damage": "1d6+2",
+        "type": "piercing"
+      }
+    ]
+  },
+  "goblin_melee": {
+    "name": "Goblin Warrior",
+    "hp": 10,
+    "ac": 14,
+    "initiativeBonus": 2,
+    "attacks": [
+      {
+        "name": "Scimitar",
+        "bonus": 4,
+        "damage": "1d6+2",
+        "type": "slashing"
+      }
+    ]
+  }
+}

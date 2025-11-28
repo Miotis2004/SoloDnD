@@ -21,26 +21,31 @@
       "text": "As you approach, you notice the arrows sticking out of the horses. Black fletching. Goblin make. You spin around just in time to see movement in the bushes!",
       "type": "combat",
       "enemies": ["goblin_archer"],
-      "next": "combat_start"
+      "on_victory": "victory_node",
+      "on_defeat": "defeat_node"
     },
     "ambush_surprise": {
       "text": "Suddenly, arrows fly from the thicket! You are caught completely off guard as goblins shriek and charge.",
       "type": "combat",
       "enemies": ["goblin_archer", "goblin_melee"],
       "surprise": true,
-      "next": "combat_start"
+      "on_victory": "victory_node",
+      "on_defeat": "defeat_node"
     },
-    "combat_start": {
-      "text": "Roll for Initiative!",
+    "victory_node": {
+      "text": "You stand victorious over the fallen goblins. The path is clear.",
       "type": "narrative",
       "choices": [
-        { "label": "Fight!", "target": "combat_loop" }
+        { "label": "Loot the bodies", "target": "intro" },
+        { "label": "Continue to Phandalin", "target": "intro" }
       ]
     },
-    "combat_loop": {
-      "text": "The battle rages...",
+    "defeat_node": {
+      "text": "The world fades to black as you fall...",
       "type": "narrative",
-      "choices": []
+      "choices": [
+        { "label": "Try Again", "target": "intro" }
+      ]
     }
   }
 }
