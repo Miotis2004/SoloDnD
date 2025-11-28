@@ -27,7 +27,7 @@
     "ambush_surprise": {
       "text": "Suddenly, arrows fly from the thicket! You are caught completely off guard as goblins shriek and charge.",
       "type": "combat",
-      "enemies": ["goblin_archer", "goblin_melee"],
+      "enemies": ["goblin", "goblin"],
       "surprise": true,
       "on_victory": "victory_node",
       "on_defeat": "defeat_node"
