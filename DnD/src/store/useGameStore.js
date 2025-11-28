@@ -24,7 +24,7 @@ const initialCharacter = {
   spells: []
 };
 
-const useGameStore = create((set, get) => ({
+const useGameStore = create((set) => ({
   character: initialCharacter,
   
   // Game Mode: 'narrative' or 'combat'

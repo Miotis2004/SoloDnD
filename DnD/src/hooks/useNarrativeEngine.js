@@ -16,6 +16,7 @@ const useNarrativeEngine = () => {
   } = useGameStore();
   
   // Derive choices directly from the current node ID and data
+  // This avoids storing redundant state and eliminates the setState-in-effect warning
   const node = adventureData.nodes[currentNodeId];
   const choices = node?.choices || [];
 
@@ -46,7 +47,7 @@ const useNarrativeEngine = () => {
       setGameMode('narrative');
     }
 
-  }, [currentNodeId, addToLog, setGameMode, node, startCombat]);
+  }, [currentNodeId, addToLog, setGameMode, node]);
 
   const handleChoice = (choice) => {
     // Handle Skill Checks
