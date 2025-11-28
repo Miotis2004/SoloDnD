@@ -3,28 +3,29 @@ import useGameStore from '../store/useGameStore';
 import Card from './Card';
 import { Sword, Hand, Zap } from 'lucide-react';
 
+const ActionButton = ({ icon, label, onClick, variant = 'default' }) => {
+  const Icon = icon;
+  const variants = {
+    default: 'bg-slate-800 hover:bg-slate-700 border-slate-600 text-slate-200',
+    combat: 'bg-red-900/40 hover:bg-red-900/60 border-red-800 text-red-200',
+    magic: 'bg-blue-900/40 hover:bg-blue-900/60 border-blue-800 text-blue-200',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-3 p-3 w-full rounded-lg border transition-all text-left group ${variants[variant]}`}
+    >
+      <div className="p-2 rounded bg-black/20 group-hover:scale-110 transition-transform">
+        <Icon size={20} />
+      </div>
+      <span className="font-semibold">{label}</span>
+    </button>
+  );
+};
+
 const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) => {
   const { gameMode } = useGameStore();
-
-  const ActionButton = ({ icon: Icon, label, onClick, variant = 'default' }) => {
-    const variants = {
-      default: 'bg-slate-800 hover:bg-slate-700 border-slate-600 text-slate-200',
-      combat: 'bg-red-900/40 hover:bg-red-900/60 border-red-800 text-red-200',
-      magic: 'bg-blue-900/40 hover:bg-blue-900/60 border-blue-800 text-blue-200',
-    };
-
-    return (
-      <button
-        onClick={onClick}
-        className={`flex items-center gap-3 p-3 w-full rounded-lg border transition-all text-left group ${variants[variant]}`}
-      >
-        <div className="p-2 rounded bg-black/20 group-hover:scale-110 transition-transform">
-          <Icon size={20} />
-        </div>
-        <span className="font-semibold">{label}</span>
-      </button>
-    );
-  };
 
   return (
     <Card title="Actions" className="md:col-span-1 md:row-span-2">
