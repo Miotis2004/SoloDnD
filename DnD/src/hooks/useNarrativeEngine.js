@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import useGameStore from '../store/useGameStore';
 import adventureData from '../data/adventure.json';
 
@@ -13,11 +13,12 @@ const useNarrativeEngine = () => {
     rollDice 
   } = useGameStore();
   
-  const [choices, setChoices] = useState([]);
+  // Derive choices directly from the current node ID and data
+  // This avoids storing redundant state and eliminates the setState-in-effect warning
+  const node = adventureData.nodes[currentNodeId];
+  const choices = node?.choices || [];
 
   useEffect(() => {
-    // 1. Load current node
-    const node = adventureData.nodes[currentNodeId];
     if (!node) {
       console.error("Node not found:", currentNodeId);
       return;
@@ -40,10 +41,7 @@ const useNarrativeEngine = () => {
       setGameMode('narrative');
     }
 
-    // 4. Set Choices
-    setChoices(node.choices || []);
-
-  }, [currentNodeId]);
+  }, [currentNodeId, addToLog, setGameMode, node]);
 
   const handleChoice = (choice) => {
     // Handle Skill Checks
