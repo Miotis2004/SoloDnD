@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import useGameStore from '../store/useGameStore';
 import adventureData from '../data/adventure.json';
+import monsterData from '../data/monsters.json';
 
 // This component doesn't render UI, it manages the logic bridge between the Store and the JSON
 const useNarrativeEngine = () => {
@@ -10,7 +11,8 @@ const useNarrativeEngine = () => {
     addToLog, 
     setGameMode, 
     character, 
-    rollDice 
+    rollDice,
+    startCombat
   } = useGameStore();
   
   // Derive choices directly from the current node ID and data
@@ -24,9 +26,6 @@ const useNarrativeEngine = () => {
       return;
     }
 
-    // 2. Add text to log (avoid duplicates if possible, but for now simple append)
-    // In a real app we'd track 'visited' to not re-log on re-renders, 
-    // but here we trust the state change triggers this effect once.
     addToLog({ 
       text: node.text, 
       type: node.type || 'narrative',
@@ -35,8 +34,15 @@ const useNarrativeEngine = () => {
 
     // 3. Handle Node Type
     if (node.type === 'combat') {
-      setGameMode('combat');
-      // In a full implementation, we'd spawn enemies here
+      // Look up enemies
+      const enemies = (node.enemies || []).map(id => monsterData[id]).filter(Boolean);
+
+      if (enemies.length > 0) {
+        startCombat(enemies, node.on_victory, node.on_defeat);
+      } else {
+        console.error("No valid enemies found for combat node", node.enemies);
+        setGameMode('narrative'); // Fallback
+      }
     } else {
       setGameMode('narrative');
     }
