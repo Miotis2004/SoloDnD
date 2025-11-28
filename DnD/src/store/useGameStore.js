@@ -1,4 +1,13 @@
 import { create } from 'zustand';
+import itemsData from '../data/items.json';
+
+// Flatten items data for easy lookup
+export const itemLookup = {};
+Object.values(itemsData).forEach(category => {
+  Object.entries(category).forEach(([id, item]) => {
+    itemLookup[id] = { id, ...item };
+  });
+});
 
 // Initial state for a fresh character
 const initialCharacter = {
@@ -20,7 +29,15 @@ const initialCharacter = {
     cha: 10
   },
   skills: [],
-  inventory: [],
+  inventory: [
+    { id: 'longsword', qty: 1 },
+    { id: 'healing_potion', qty: 2 }
+  ],
+  equipment: {
+    mainHand: null,
+    offHand: null,
+    body: null
+  },
   spells: []
 };
 

@@ -10,7 +10,7 @@ import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { addToLog, rollDice } = useGameStore();
+  const { combat, performPlayerAttack, addToLog } = useGameStore();
 
   const handleAction = (actionType) => {
     if (combat.active) {
