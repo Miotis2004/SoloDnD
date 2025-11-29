@@ -249,17 +249,20 @@ const useGameStore = create((set, get) => ({
     if (currentCombatant.type !== 'player') {
        setTimeout(() => {
          // Simple AI: Attack Player
-         const attack = currentCombatant.attacks[0]; // Assume 1 attack
-         const roll = rollDice(20, attack.bonus);
+         // Data structure: { attack: "+4", damage: "1d6+2", ... }
+         const attackBonus = parseInt(currentCombatant.attack) || 0;
+         const roll = rollDice(20, attackBonus);
          const hit = roll.total >= character.ac;
 
          let damage = 0;
          if (hit) {
            // Parse damage string "1d6+2" -> simplistic parser
-           const [dice, mod] = attack.damage.split('+');
+           const [dice, mod] = currentCombatant.damage.split('+');
            const [count, sides] = dice.split('d').map(Number);
 
-           let totalDmg = Number(mod);
+           // Handle cases where mod might be missing or empty
+           let totalDmg = mod ? parseInt(mod) : 0;
+
            for (let i = 0; i < count; i++) {
               totalDmg += rollDice(sides, 0).roll;
            }
@@ -270,7 +273,7 @@ const useGameStore = create((set, get) => ({
            updateCharacter({ hp: { ...character.hp, current: newHp } });
 
            addToLog({
-             text: `${currentCombatant.name} attacks you with ${attack.name}! Rolled ${roll.total} (vs AC ${character.ac}). HIT! You take ${damage} damage.`,
+             text: `${currentCombatant.name} attacks you! Rolled ${roll.total} (vs AC ${character.ac}). HIT! You take ${damage} damage.`,
              type: 'combat'
            });
 
@@ -284,7 +287,7 @@ const useGameStore = create((set, get) => ({
 
          } else {
             addToLog({
-             text: `${currentCombatant.name} attacks you with ${attack.name}! Rolled ${roll.total} (vs AC ${character.ac}). MISS!`,
+             text: `${currentCombatant.name} attacks you! Rolled ${roll.total} (vs AC ${character.ac}). MISS!`,
              type: 'combat'
            });
          }
