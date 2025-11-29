@@ -576,7 +576,18 @@ const useGameStore = create((set, get) => ({
         const querySnapshot = await getDocs(collection(db, "users", uid, "characters"));
         const list = [];
         querySnapshot.forEach((doc) => {
-            list.push(doc.data().character);
+            const data = doc.data();
+            // Handle both nested 'character' structure (new save) and flat structure (old/migrated save)
+            // AND fallback to empty object if undefined to prevent UI crashes
+            let charObj = data.character || data || {};
+
+            // Ensure ID exists if missing
+            if (!charObj.id) charObj.id = doc.id;
+
+            // Ensure Name exists
+            if (!charObj.name) charObj.name = "Unknown Hero";
+
+            list.push(charObj);
         });
         set({ characterList: list });
         return list;

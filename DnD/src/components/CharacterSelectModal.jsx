@@ -64,16 +64,16 @@ const CharacterSelectModal = ({ isOpen, onClose }) => {
                     </button>
 
                     {/* Character List */}
-                    {characterList.map((char) => (
-                        <div key={char.id} className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col justify-between hover:border-dnd-accent transition-colors group relative">
+                    {characterList.map((char, index) => (
+                        <div key={char.id || index} className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col justify-between hover:border-dnd-accent transition-colors group relative">
                             <div>
                                 <div className="flex justify-between items-start">
-                                    <h3 className="text-lg font-bold text-white">{char.name}</h3>
-                                    <div className="bg-slate-900 text-xs px-2 py-1 rounded text-slate-400">Lvl {char.level}</div>
+                                    <h3 className="text-lg font-bold text-white">{char.name || "Unknown"}</h3>
+                                    <div className="bg-slate-900 text-xs px-2 py-1 rounded text-slate-400">Lvl {char.level || 1}</div>
                                 </div>
-                                <div className="text-sm text-dnd-accent font-medium mb-1">{char.race} {char.class}</div>
+                                <div className="text-sm text-dnd-accent font-medium mb-1">{char.race || "Human"} {char.class || "Fighter"}</div>
                                 <div className="text-xs text-slate-500 mt-2">
-                                    HP: {char.hp.current}/{char.hp.max}
+                                    HP: {char.hp?.current || 0}/{char.hp?.max || 0}
                                 </div>
                             </div>
 
