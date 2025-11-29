@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../services/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import itemsData from '../data/items.json';
 
 // Flatten items data for easy lookup
@@ -13,6 +13,7 @@ Object.values(itemsData).forEach(category => {
 
 // Initial state for a fresh character
 const initialCharacter = {
+  id: null, // assigned on creation
   name: "Hero",
   race: "Human",
   class: "Fighter",
@@ -45,6 +46,7 @@ const initialCharacter = {
 
 const useGameStore = create((set, get) => ({
   character: initialCharacter,
+  characterList: [], // List of all characters for the user
   
   // Game Mode: 'narrative' or 'combat'
   gameMode: 'narrative',
@@ -527,25 +529,34 @@ const useGameStore = create((set, get) => ({
 
   saveGame: async (uid) => {
       const { character, log, currentNodeId, currentAdventureId, gameMode, combat } = get();
+
+      // Ensure character has an ID
+      if (!character.id) {
+          console.error("Cannot save character without ID");
+          return;
+      }
+
       const saveData = {
           character,
           log,
           currentNodeId,
           currentAdventureId,
           gameMode,
-          combat, // Might be complex if active, but serializable
+          combat,
           lastSaved: new Date().toISOString()
       };
 
       try {
         if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
              console.warn("Mock Save Game:", saveData);
-             localStorage.setItem(`save_${uid}`, JSON.stringify(saveData));
+             const saves = JSON.parse(localStorage.getItem(`saves_${uid}`) || "{}");
+             saves[character.id] = saveData;
+             localStorage.setItem(`saves_${uid}`, JSON.stringify(saves));
              get().addToLog({ text: "Game Saved (Local Mock).", type: 'system' });
              return;
         }
 
-        await setDoc(doc(db, "saves", uid), saveData);
+        await setDoc(doc(db, "users", uid, "characters", character.id), saveData);
         get().addToLog({ text: "Game Saved to Cloud.", type: 'system' });
       } catch (error) {
         console.error("Save failed", error);
@@ -553,14 +564,36 @@ const useGameStore = create((set, get) => ({
       }
   },
 
-  loadGame: async (uid) => {
+  loadCharacterList: async (uid) => {
+      try {
+        if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+             const saves = JSON.parse(localStorage.getItem(`saves_${uid}`) || "{}");
+             const list = Object.values(saves).map(s => s.character);
+             set({ characterList: list });
+             return list;
+        }
+
+        const querySnapshot = await getDocs(collection(db, "users", uid, "characters"));
+        const list = [];
+        querySnapshot.forEach((doc) => {
+            list.push(doc.data().character);
+        });
+        set({ characterList: list });
+        return list;
+      } catch (error) {
+          console.error("Failed to load character list", error);
+          return [];
+      }
+  },
+
+  loadGame: async (uid, characterId) => {
       try {
         let data = null;
         if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
-             const local = localStorage.getItem(`save_${uid}`);
-             if (local) data = JSON.parse(local);
+             const saves = JSON.parse(localStorage.getItem(`saves_${uid}`) || "{}");
+             data = saves[characterId];
         } else {
-             const docSnap = await getDoc(doc(db, "saves", uid));
+             const docSnap = await getDoc(doc(db, "users", uid, "characters", characterId));
              if (docSnap.exists()) {
                  data = docSnap.data();
              }
@@ -575,14 +608,40 @@ const useGameStore = create((set, get) => ({
                 gameMode: data.gameMode,
                 combat: data.combat
             });
-            get().addToLog({ text: "Game Loaded.", type: 'system' });
+            get().addToLog({ text: "Character Loaded.", type: 'system' });
         } else {
-             // New Game or No Save found
-             get().addToLog({ text: "New Journey Started.", type: 'system' });
+             console.error("Save file not found for", characterId);
         }
       } catch (error) {
           console.error("Load failed", error);
       }
+  },
+
+  createNewCharacter: async (uid, newCharacterData) => {
+      const { saveGame } = get();
+      const newId = `char_${Date.now()}`;
+
+      const newCharacter = {
+          ...initialCharacter,
+          ...newCharacterData,
+          id: newId,
+          hp: { current: newCharacterData.maxHp, max: newCharacterData.maxHp }
+      };
+
+      // Reset Game State for new character
+      set({
+          character: newCharacter,
+          log: [{ id: 1, text: "Your adventure begins...", type: 'narrative' }],
+          currentNodeId: 'intro',
+          gameMode: 'narrative',
+          combat: { active: false, round: 0, turnOrder: [], currentTurnIndex: 0, victoryNode: null, defeatNode: null }
+      });
+
+      // Initial Save
+      await saveGame(uid);
+
+      // Refresh list
+      await get().loadCharacterList(uid);
   }
 }));
 
