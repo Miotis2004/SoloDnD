@@ -12,7 +12,7 @@ const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
   const { combat, initiatePlayerAttack, addToLog } = useGameStore();
 
-  const handleAction = (actionType, targetId) => {
+  const handleAction = (actionType, targetId, spellId) => {
     if (combat.active) {
        // Combat Logic
        const currentPlayer = combat.turnOrder[combat.currentTurnIndex];
@@ -28,18 +28,27 @@ const GameBoard = () => {
             addToLog({ text: "No target selected!", type: 'system' });
           }
        } else if (actionType === 'cast') {
-          if (targetId) {
-             useGameStore.getState().castSpell(targetId);
+          // targetId is target, spellId is... passed as 3rd arg
+          if (spellId) {
+             useGameStore.getState().castSpell(targetId, spellId);
           } else {
-             addToLog({ text: "No target selected!", type: 'system' });
+             addToLog({ text: "No spell selected!", type: 'system' });
           }
        } else {
           addToLog({ text: `Action ${actionType} not implemented yet.`, type: 'system' });
        }
 
     } else {
-       // Non-combat interaction (if any)
-       addToLog({ text: "You can't do that right now.", type: 'system' });
+       // Non-combat interaction
+       if (actionType === 'rest') {
+           useGameStore.getState().performLongRest();
+       } else if (actionType === 'cast') {
+           if (spellId) {
+               useGameStore.getState().castSpell(targetId, spellId);
+           }
+       } else {
+           addToLog({ text: "You can't do that right now.", type: 'system' });
+       }
     }
   };
 

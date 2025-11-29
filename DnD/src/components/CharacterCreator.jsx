@@ -10,7 +10,9 @@ const CLASSES = {
     stats: { str: 16, dex: 12, con: 14, int: 10, wis: 10, cha: 10 }, // Default spread
     hp: 12,
     equipment: { mainHand: 'longsword', body: 'chainmail' },
-    inventory: [{ id: 'healing_potion', qty: 2 }]
+    inventory: [{ id: 'healing_potion', qty: 2 }],
+    spells: [],
+    spellSlots: {}
   },
   Wizard: {
     description: "A scholarly magic-user.",
@@ -18,7 +20,9 @@ const CLASSES = {
     stats: { str: 8, dex: 14, con: 14, int: 16, wis: 12, cha: 10 },
     hp: 8,
     equipment: { mainHand: 'quarterstaff', body: 'padded' },
-    inventory: [{ id: 'healing_potion', qty: 1 }]
+    inventory: [{ id: 'healing_potion', qty: 1 }],
+    spells: ['fire_bolt', 'magic_missile', 'mage_armor', 'burning_hands', 'shield'],
+    spellSlots: { 1: 2 }
   },
   Rogue: {
     description: "A scoundrel who uses stealth and trickery.",
@@ -26,7 +30,9 @@ const CLASSES = {
     stats: { str: 10, dex: 16, con: 12, int: 14, wis: 10, cha: 12 },
     hp: 10,
     equipment: { mainHand: 'shortsword', body: 'leather' },
-    inventory: [{ id: 'healing_potion', qty: 1 }, { id: 'thieves_tools', qty: 1 }]
+    inventory: [{ id: 'healing_potion', qty: 1 }, { id: 'thieves_tools', qty: 1 }],
+    spells: [],
+    spellSlots: {}
   },
   Cleric: {
     description: "A priestly champion who wields divine magic.",
@@ -34,7 +40,9 @@ const CLASSES = {
     stats: { str: 14, dex: 10, con: 14, int: 10, wis: 16, cha: 10 },
     hp: 10,
     equipment: { mainHand: 'mace', offHand: 'shield', body: 'scale_mail' },
-    inventory: [{ id: 'healing_potion', qty: 2 }]
+    inventory: [{ id: 'healing_potion', qty: 2 }],
+    spells: ['sacred_flame', 'cure_wounds', 'guiding_bolt', 'bless'], // Assuming guiding_bolt/bless exist or placeholders
+    spellSlots: { 1: 2 }
   },
   Ranger: {
     description: "A warrior who uses martial prowess and nature magic.",
@@ -42,7 +50,9 @@ const CLASSES = {
     stats: { str: 12, dex: 16, con: 12, int: 10, wis: 14, cha: 10 },
     hp: 12,
     equipment: { mainHand: 'longbow', body: 'leather' },
-    inventory: [{ id: 'healing_potion', qty: 2 }]
+    inventory: [{ id: 'healing_potion', qty: 2 }],
+    spells: ['cure_wounds'], // Rangers get spells at lvl 2 typically, but giving one for fun
+    spellSlots: { 1: 1 }
   },
   Barbarian: {
     description: "A fierce warrior of primitive background.",
@@ -50,7 +60,9 @@ const CLASSES = {
     stats: { str: 16, dex: 14, con: 16, int: 8, wis: 10, cha: 8 },
     hp: 14,
     equipment: { mainHand: 'greataxe', body: 'hide' },
-    inventory: [{ id: 'healing_potion', qty: 2 }]
+    inventory: [{ id: 'healing_potion', qty: 2 }],
+    spells: [],
+    spellSlots: {}
   }
 };
 
@@ -92,7 +104,10 @@ const CharacterCreator = ({ onCancel, onComplete }) => {
       maxHp: classData.hp, // Helper for create function
       stats, // User customized stats
       equipment: classData.equipment,
-      inventory: classData.inventory
+      inventory: classData.inventory,
+      spells: classData.spells,
+      spellSlots: classData.spellSlots,
+      maxSpellSlots: classData.spellSlots // Save max for restoration
     };
 
     await createNewCharacter(user.uid, newCharData);

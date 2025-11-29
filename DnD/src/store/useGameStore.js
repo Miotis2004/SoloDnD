@@ -2,12 +2,21 @@ import { create } from 'zustand';
 import { db } from '../services/firebase';
 import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import itemsData from '../data/items.json';
+import spellsData from '../data/spells.json';
 
 // Flatten items data for easy lookup
 export const itemLookup = {};
 Object.values(itemsData).forEach(category => {
   Object.entries(category).forEach(([id, item]) => {
     itemLookup[id] = { id, ...item };
+  });
+});
+
+// Flatten spells
+export const spellLookup = {};
+Object.values(spellsData).forEach(level => {
+  Object.entries(level).forEach(([id, spell]) => {
+    spellLookup[id] = { id, ...spell };
   });
 });
 
@@ -375,27 +384,32 @@ const useGameStore = create((set, get) => ({
 
          const hit = total >= target.ac;
          if (hit) {
-             // Setup Damage Roll
-            const weaponId = character.equipment.mainHand;
-            const weapon = weaponId ? itemLookup[weaponId] : null;
-
+            // Setup Damage Roll (Weapon OR Spell)
             let damageDice = "1";
-            let damageSides = 4; // Unarmed
-            if (weapon && weapon.damage) {
-                const parts = weapon.damage.split('d');
-                damageDice = parts[0];
-                damageSides = parseInt(parts[1]);
+            let damageSides = 4; // Unarmed default
+            let dmgMod = Math.floor((character.stats.str - 10) / 2); // Default Str mod
+
+            // Check if this was a Spell Attack
+            if (pendingRoll.spellId) {
+                const spell = spellLookup[pendingRoll.spellId];
+                if (spell && spell.damage) {
+                    const parts = spell.damage.split('d');
+                    damageDice = parts[0];
+                    damageSides = parseInt(parts[1]);
+                    dmgMod = 0; // Spells usually don't add mod to damage unless specified (e.g. Eldritch Blast Agonizing, but simple for now)
+                }
+            } else {
+                // Weapon Attack
+                const weaponId = character.equipment.mainHand;
+                const weapon = weaponId ? itemLookup[weaponId] : null;
+                if (weapon && weapon.damage) {
+                    const parts = weapon.damage.split('d');
+                    damageDice = parts[0];
+                    damageSides = parseInt(parts[1]);
+                }
             }
-            // Note: Simplistic, assuming 1 die for pending roll. If multiple dice (2d6), we might need a loop or multi-click.
-            // For this version, let's assume we roll one die type and multiply or sum logic is internal?
-            // "6. User clicks [Weapon Die]." -> Implies single click.
-            // We will just ask for the die type. If it's 2d6, we will roll 2d6 internally on that one click for simplicity of UI?
-            // Or better: The prompt says "Roll d6 for damage". The result `resolveDiceRoll` receives is just ONE roll.
-            // If weapon is 2d6, we need to roll the other dice automatically?
-            // Let's keep it simple: We ask for the die sides. If it's 2d6, we treat the user input as the first die, and auto-roll the rest.
 
             const numDice = parseInt(damageDice) || 1;
-            const strMod = Math.floor((character.stats.str - 10) / 2);
 
             addToLog({ text: `Rolled ${total} (vs AC ${target.ac}). HIT! Roll d${damageSides} for damage.`, type: 'combat' });
 
@@ -403,9 +417,9 @@ const useGameStore = create((set, get) => ({
                 pendingRoll: {
                     type: 'damage',
                     sides: damageSides,
-                    modifier: strMod, // Add Str to dmg
+                    modifier: dmgMod,
                     targetId: targetId,
-                    multiplier: numDice, // Store how many dice
+                    multiplier: numDice,
                     label: 'Damage Roll'
                 }
             });
@@ -417,9 +431,35 @@ const useGameStore = create((set, get) => ({
          }
       }
 
-      // --- DAMAGE ROLL ---
-      else if (pendingRoll.type === 'damage') {
+      // --- DAMAGE (OR HEAL) ROLL ---
+      else if (pendingRoll.type === 'damage' || pendingRoll.type === 'heal') {
+          const isHeal = pendingRoll.type === 'heal';
           const targetId = pendingRoll.targetId;
+
+          // Calculate total
+          let totalValue = resultValue;
+          if (pendingRoll.multiplier > 1) {
+              for(let i=1; i < pendingRoll.multiplier; i++) {
+                  totalValue += rollDice(pendingRoll.sides).roll;
+              }
+          }
+          totalValue += pendingRoll.modifier;
+
+          if (isHeal) {
+              // Apply Healing to Player
+              // (Simplification: assuming target is always player for heal spells in this MVP)
+              const newHp = Math.min(character.hp.max, character.hp.current + totalValue);
+              set((state) => ({
+                character: { ...state.character, hp: { ...state.character.hp, current: newHp } }
+              }));
+              addToLog({ text: `Healed for ${totalValue} HP.`, type: 'system' });
+
+              set({ pendingRoll: null });
+              get().nextTurn();
+              return;
+          }
+
+          // Apply Damage to Enemy
           const targetIndex = combat.turnOrder.findIndex(c => c.id === targetId);
           if (targetIndex === -1) {
              set({ pendingRoll: null });
@@ -427,27 +467,14 @@ const useGameStore = create((set, get) => ({
              return;
           }
 
-          // Calculate total damage
-          // The 'resultValue' is the first die.
-          let damageTotal = resultValue;
-
-          // Roll remaining dice if any
-          if (pendingRoll.multiplier > 1) {
-              for(let i=1; i < pendingRoll.multiplier; i++) {
-                  damageTotal += rollDice(pendingRoll.sides).roll;
-              }
-          }
-
-          damageTotal += pendingRoll.modifier;
-
           const target = combat.turnOrder[targetIndex];
-          const newHp = Math.max(0, target.currentHp - damageTotal);
+          const newHp = Math.max(0, target.currentHp - totalValue);
           const isDead = newHp === 0;
 
           const newTurnOrder = [...combat.turnOrder];
           newTurnOrder[targetIndex] = { ...target, currentHp: newHp, isDead };
 
-          addToLog({ text: `Dealt ${damageTotal} damage to ${target.name}.`, type: 'combat' });
+          addToLog({ text: `Dealt ${totalValue} damage to ${target.name}.`, type: 'combat' });
           if (isDead) {
               addToLog({ text: `${target.name} falls!`, type: 'combat' });
           }
@@ -487,11 +514,153 @@ const useGameStore = create((set, get) => ({
       }
   },
 
-  castSpell: (targetId) => {
-      const { addToLog } = get();
-      // Placeholder
-      addToLog({ text: `You chant words of power at ${targetId || 'the darkness'}... but nothing happens yet (Spell system pending).`, type: 'combat' });
-      get().nextTurn();
+  castSpell: (targetId, spellId) => {
+      const { addToLog, character, updateCharacter } = get();
+      const spell = spellLookup[spellId];
+      if (!spell) return;
+
+      // 1. Check Slots
+      const level = spell.level;
+      if (level > 0) {
+          const slots = character.spellSlots?.[level] || 0;
+          if (slots <= 0) {
+              addToLog({ text: `Not enough level ${level} spell slots!`, type: 'system' });
+              return;
+          }
+          // Consume Slot
+          const newSlots = { ...character.spellSlots, [level]: slots - 1 };
+          updateCharacter({ spellSlots: newSlots });
+          addToLog({ text: `Cast ${spell.name}. (${slots-1} slots remaining)`, type: 'combat' });
+      } else {
+          addToLog({ text: `Cast ${spell.name} (Cantrip).`, type: 'combat' });
+      }
+
+      // 2. Handle Effect Types
+      if (spell.attackType === 'attack') {
+          // Attack Roll required
+          // Better: Derive from class casting stat.
+          // For MVP, lets use Proficiency + 2 (approx +4) or just character.proficiencyBonus + MAX(INT, WIS, CHA mod)
+          const stats = character.stats;
+          const castStat = Math.max(stats.int, stats.wis, stats.cha);
+          const castMod = Math.floor((castStat - 10) / 2);
+          const attackBonus = character.proficiencyBonus + castMod;
+
+          addToLog({ text: `Spell Attack! Roll d20.`, type: 'system' });
+          set({
+            pendingRoll: {
+                type: 'attack',
+                sides: 20,
+                modifier: attackBonus,
+                targetId: targetId,
+                label: `Attack with ${spell.name}`,
+                spellId: spellId // Pass spell ID to resolve logic
+            }
+          });
+
+      } else if (spell.attackType === 'save') {
+          // Enemy makes save. For interactive feel, we can just say "Target resists DC X..."
+          // Or we prompt user to roll damage if we assume fail?
+          // Let's auto-resolve save for enemies to keep flow fast, then prompt damage if fail.
+          const stats = character.stats;
+          const castStat = Math.max(stats.int, stats.wis, stats.cha);
+          const castMod = Math.floor((castStat - 10) / 2);
+          const dc = 8 + character.proficiencyBonus + castMod;
+
+          const target = get().combat.turnOrder.find(c => c.id === targetId);
+          if (target) {
+             // Simulate save: d20 + 0 (simplification for MVP monster stats)
+             // Monsters usually have stats... `monsters.json` has `dex`, `con`, etc.
+             // Let's try to look up monster stat?
+             const saveStat = spell.savingThrow || 'dex'; // 'dex', 'con', etc.
+             const monsterStat = target[saveStat] || 10;
+             const monsterMod = Math.floor((monsterStat - 10) / 2);
+
+             const { total } = get().rollDice(20, monsterMod);
+             const saved = total >= dc;
+
+             if (saved) {
+                 addToLog({ text: `${target.name} resists ${spell.name}! (Rolled ${total} vs DC ${dc}) - Half Damage (Not impl, taking 0 for MVP clarity).`, type: 'combat' });
+                 get().nextTurn();
+             } else {
+                 addToLog({ text: `${target.name} failed save! (Rolled ${total} vs DC ${dc}). Roll Damage!`, type: 'combat' });
+                 // Trigger Damage Roll
+                 // Parse dice: "3d6"
+                 let damageDice = "1";
+                 let damageSides = 6;
+                 if (spell.damage) {
+                    const parts = spell.damage.split('d');
+                    damageDice = parts[0];
+                    damageSides = parseInt(parts[1]);
+                 }
+                 set({
+                    pendingRoll: {
+                        type: 'damage',
+                        sides: damageSides,
+                        modifier: 0,
+                        targetId: targetId,
+                        multiplier: parseInt(damageDice) || 1,
+                        label: `${spell.name} Damage`
+                    }
+                });
+             }
+          } else {
+              get().nextTurn();
+          }
+
+      } else if (spell.attackType === 'heal') {
+          // Roll healing
+          let healDice = "1";
+          let healSides = 8;
+          let healMod = 0;
+          // e.g. "1d8"
+          if (spell.healing) {
+             const parts = spell.healing.split('d'); // "1d8" -> ["1", "8"] (ignoring +mod for now in string parse)
+             healDice = parts[0];
+             healSides = parseInt(parts[1]);
+             // If complex string "1d8+3", we need better parser.
+             // Simplification: just base dice for MVP or simple mod.
+          }
+
+          addToLog({ text: `Healing! Roll d${healSides}.`, type: 'system' });
+          set({
+            pendingRoll: {
+                type: 'heal',
+                sides: healSides,
+                modifier: healMod,
+                targetId: 'player', // Force player for now
+                multiplier: parseInt(healDice) || 1,
+                label: `Heal with ${spell.name}`
+            }
+          });
+
+      } else if (spell.attackType === 'buff' || spell.attackType === 'utility') {
+          addToLog({ text: `Effect applied: ${spell.description} (Mechanic not fully implemented)`, type: 'combat' });
+          get().nextTurn();
+      }
+  },
+
+  performLongRest: () => {
+      const { character, addToLog, updateCharacter } = get();
+      // Restore HP
+      const newHp = { ...character.hp, current: character.hp.max };
+
+      // Restore Spell Slots (Reset to class max)
+      // This requires knowing max slots per level.
+      // For MVP, we can look at `CharacterCreator.jsx` logic or just assume full restore of *current structure*?
+      // Issue: `character.spellSlots` stores current. We lost "Max" info.
+      // Fix: We should store `maxSpellSlots` in character or look it up.
+      // For now, let's hardcode reset for known classes or just not reset slots (user only asked for "restore spell slots").
+      // Better approach: We need to know what the max is.
+      // Let's modify `character` to store `maxSpellSlots` on creation.
+      // I'll update `CharacterCreator` in a moment, but here I will use `character.maxSpellSlots` if it exists.
+
+      let newSlots = character.spellSlots;
+      if (character.maxSpellSlots) {
+          newSlots = { ...character.maxSpellSlots };
+      }
+
+      updateCharacter({ hp: newHp, spellSlots: newSlots });
+      addToLog({ text: "Long Rest taken. HP and Spell Slots restored.", type: 'system' });
   },
 
   lootBodies: (lootTable = []) => {
