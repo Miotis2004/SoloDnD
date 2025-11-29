@@ -11,7 +11,6 @@ const useNarrativeEngine = () => {
     addToLog, 
     setGameMode, 
     character, 
-    rollDice,
     startCombat
   } = useGameStore();
   
@@ -51,26 +50,37 @@ const useNarrativeEngine = () => {
       setGameMode('narrative');
     }
 
-  }, [currentNodeId, addToLog, setGameMode, node, startCombat]);
+  }, [currentNodeId, addToLog, setGameMode, node, startCombat, allMonsters]);
 
   const handleChoice = (choice) => {
+    // Special Actions defined in Adventure JSON
+    if (choice.action === 'loot') {
+        useGameStore.getState().lootBodies(choice.loot);
+    }
+
     // Handle Skill Checks
     if (choice.check) {
-      const { stat, dc, success, failure } = choice.check;
+      const { stat } = choice.check;
       // Calculate mod
       const statVal = character.stats[stat];
       const mod = Math.floor((statVal - 10) / 2);
       
-      const { roll, total } = rollDice(20, mod);
-      const passed = total >= dc;
+      addToLog({ text: `Skill Check Required: ${choice.label}. Roll d20.`, type: 'system' });
 
-      addToLog({ 
-        text: `Attempted ${choice.label}. Rolled ${roll} + ${mod} = ${total} (DC ${dc}). ${passed ? "Success!" : "Failure!"}`,
-        type: 'system'
+      // Set Pending Roll
+      useGameStore.setState({
+          pendingRoll: {
+              type: 'check',
+              sides: 20,
+              modifier: mod,
+              label: choice.label,
+              checkData: choice.check // { stat, dc, success, failure }
+          }
       });
+      return; // Stop here, wait for roll
+    }
 
-      setCurrentNode(passed ? success : failure);
-    } else if (choice.target) {
+    if (choice.target) {
       setCurrentNode(choice.target);
     }
   };

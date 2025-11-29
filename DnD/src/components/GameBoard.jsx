@@ -10,9 +10,9 @@ import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { combat, performPlayerAttack, addToLog } = useGameStore();
+  const { combat, initiatePlayerAttack, addToLog } = useGameStore();
 
-  const handleAction = (actionType) => {
+  const handleAction = (actionType, targetId) => {
     if (combat.active) {
        // Combat Logic
        const currentPlayer = combat.turnOrder[combat.currentTurnIndex];
@@ -22,13 +22,16 @@ const GameBoard = () => {
        }
 
        if (actionType === 'attack') {
-          // Auto-target the first living enemy for now
-          // Future: Add target selection UI
-          const target = combat.turnOrder.find(c => c.type !== 'player' && !c.isDead);
-          if (target) {
-            performPlayerAttack(target.id);
+          if (targetId) {
+            initiatePlayerAttack(targetId);
           } else {
-            addToLog({ text: "No valid targets!", type: 'system' });
+            addToLog({ text: "No target selected!", type: 'system' });
+          }
+       } else if (actionType === 'cast') {
+          if (targetId) {
+             useGameStore.getState().castSpell(targetId);
+          } else {
+             addToLog({ text: "No target selected!", type: 'system' });
           }
        } else {
           addToLog({ text: `Action ${actionType} not implemented yet.`, type: 'system' });
