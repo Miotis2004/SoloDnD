@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import useGameStore from '../store/useGameStore';
-import adventureData from '../data/adventure.json';
+import defaultAdventureData from '../data/adventure.json';
 import monsterData from '../data/monsters.json';
 
 // This component doesn't render UI, it manages the logic bridge between the Store and the JSON
 const useNarrativeEngine = () => {
   const { 
     currentNodeId, 
+    activeAdventure,
     setCurrentNode, 
     addToLog, 
     setGameMode, 
@@ -14,11 +15,15 @@ const useNarrativeEngine = () => {
     startCombat
   } = useGameStore();
   
+  // Use active adventure if loaded, else fallback to default
+  const adventureData = activeAdventure || defaultAdventureData;
+
   // Derive choices directly from the current node ID and data
-  const node = adventureData.nodes[currentNodeId];
+  const node = adventureData.nodes ? adventureData.nodes[currentNodeId] : null;
   const choices = node?.choices || [];
 
   // Flatten monster data for easier lookup
+  // TODO: Should fetch monsters from Firestore too in future, but for MVP local is backup.
   const allMonsters = React.useMemo(() => {
     return Object.values(monsterData).reduce((acc, cat) => ({...acc, ...cat}), {});
   }, []);

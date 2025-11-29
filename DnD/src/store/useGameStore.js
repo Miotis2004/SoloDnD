@@ -65,6 +65,7 @@ const useGameStore = create((set, get) => ({
   // Adventure State
   currentCampaignId: null,
   currentAdventureId: 'demo-adventure',
+  activeAdventure: null, // Full data of the running adventure
   currentNodeId: 'intro',
   log: [{ id: 1, text: "Welcome to the adventure...", type: 'narrative' }],
   
@@ -867,14 +868,51 @@ const useGameStore = create((set, get) => ({
       await get().loadCharacterList(uid);
   },
 
-  startAdventure: (adventureId, campaignId = null) => {
-      set({
-          currentAdventureId: adventureId,
-          currentCampaignId: campaignId,
-          currentNodeId: 'intro', // Assuming all adventures start at 'intro' node
-          gameMode: 'narrative',
-          log: [{ id: Date.now(), text: "Starting new adventure...", type: 'system' }]
-      });
+  startAdventure: async (adventureId, campaignId = null) => {
+      // 1. Try to load adventure from Firestore
+      try {
+          const { addToLog } = get();
+          let adventure = null;
+
+          if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+              // Mock load from static file if ID matches demo, else fail
+              if (adventureId === 'demo-adventure') {
+                  // Dynamic import or just assume it's loaded?
+                  // For dummy mode, we can't easily fetch dynamic content.
+                  // Just warn.
+                  console.warn("Mock Mode: Cannot load dynamic adventures. Using Default.");
+                  return;
+              }
+          } else {
+              const docSnap = await getDoc(doc(db, 'content_adventures', adventureId));
+              if (docSnap.exists()) {
+                  adventure = docSnap.data();
+              }
+          }
+
+          if (adventure) {
+              set({
+                  currentAdventureId: adventureId,
+                  currentCampaignId: campaignId,
+                  activeAdventure: adventure,
+                  currentNodeId: adventure.start_node || 'intro',
+                  gameMode: 'narrative',
+                  log: [{ id: Date.now(), text: `Starting ${adventure.title}...`, type: 'system' }]
+              });
+
+              // Ensure enemies are loaded?
+              // NarrativeEngine handles enemy lookup, but needs to know if they exist in `itemLookup`?
+              // No, enemies are in `monsters.json` (or `content_monsters`).
+              // `initializeContent` should have loaded them into `itemLookup`? No, monsters aren't in `itemLookup`.
+              // NarrativeEngine uses `allMonsters` memo. We need to make sure THAT uses dynamic content.
+
+          } else {
+              console.error("Adventure not found:", adventureId);
+              addToLog({ text: "Failed to load adventure content.", type: 'system' });
+          }
+      } catch (e) {
+          console.error("Error starting adventure:", e);
+      }
   }
 }));
 
