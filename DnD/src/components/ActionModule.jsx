@@ -2,15 +2,7 @@ import React from 'react';
 import useGameStore from '../store/useGameStore';
 import Card from './Card';
 import { Sword, Hand, Zap, ArrowLeft, BookOpen } from 'lucide-react';
-import itemsData from '../data/spells.json';
-
-// Flatten spells data for easy lookup
-const spellLookup = {};
-Object.values(itemsData).forEach(level => {
-  Object.entries(level).forEach(([id, spell]) => {
-    spellLookup[id] = { id, ...spell };
-  });
-});
+import { spellLookup } from '../store/useGameStore';
 
 const ActionButton = ({ icon, label, onClick, variant = 'default', disabled = false, subtitle = null }) => {
   const Icon = icon;

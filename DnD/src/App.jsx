@@ -7,13 +7,15 @@ import useGameStore from './store/useGameStore';
 
 function App() {
   const { user, initializeListener, loading } = useAuthStore();
-  const { character } = useGameStore();
+  const { character, initializeContent } = useGameStore();
   const [isCharacterModalOpen, setCharacterModalOpen] = useState(false);
 
   useEffect(() => {
+    // Start fetching dynamic content early
+    initializeContent();
     const unsubscribe = initializeListener();
     return () => unsubscribe();
-  }, [initializeListener]);
+  }, [initializeListener, initializeContent]);
 
   useEffect(() => {
     // If logged in but no character ID loaded (and not strictly loading), show selection

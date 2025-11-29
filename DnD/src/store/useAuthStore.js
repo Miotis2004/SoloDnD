@@ -14,6 +14,17 @@ const useAuthStore = create((set) => ({
     return unsubscribe;
   },
 
+  // Note: user object from Firebase is read-only. We need to store profile data separately in Firestore
+  // or just manage local state for purchases.
+  // For this MVP, we will assume purchases are stored in a `user_profiles` collection or similar.
+  // Actually, we can attach it to the local user object if we fetch it.
+
+  purchasedContent: [], // Array of Campaign IDs
+
+  addPurchase: (contentId) => set((state) => ({
+      purchasedContent: [...state.purchasedContent, contentId]
+  })),
+
   register: async (email, password) => {
     try {
       set({ loading: true, error: null });

@@ -1,19 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import useAuthStore from '../store/useAuthStore';
 import useGameStore from '../store/useGameStore';
-import { LogOut, Save, RotateCcw } from 'lucide-react';
+import { LogOut, Save, RotateCcw, ShieldAlert } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion';
+import AdminDashboard from './AdminDashboard';
 
 const PreferencesModal = ({ isOpen, onClose }) => {
   const { logout, user } = useAuthStore();
   const { saveGame } = useGameStore();
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const handleSave = () => {
     if (user?.uid) {
         saveGame(user.uid);
     }
   };
+
+  if (showAdmin) {
+      return <AdminDashboard onClose={() => setShowAdmin(false)} />;
+  }
 
   if (!isOpen) return null;
 
@@ -49,6 +55,14 @@ const PreferencesModal = ({ isOpen, onClose }) => {
              >
                 <RotateCcw size={18} />
                 Reload Application
+             </button>
+
+             <button
+                onClick={() => setShowAdmin(true)}
+                className="w-full bg-red-950/30 hover:bg-red-950/50 border border-red-900/30 text-red-700 p-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+             >
+                <ShieldAlert size={18} />
+                Admin Mode
              </button>
 
              <hr className="border-slate-800 my-2" />

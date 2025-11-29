@@ -4,16 +4,15 @@ import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import itemsData from '../data/items.json';
 import spellsData from '../data/spells.json';
 
-// Flatten items data for easy lookup
-export const itemLookup = {};
+// Initial Static Lookup (Fallback)
+export let itemLookup = {};
 Object.values(itemsData).forEach(category => {
   Object.entries(category).forEach(([id, item]) => {
     itemLookup[id] = { id, ...item };
   });
 });
 
-// Flatten spells
-export const spellLookup = {};
+export let spellLookup = {};
 Object.values(spellsData).forEach(level => {
   Object.entries(level).forEach(([id, spell]) => {
     spellLookup[id] = { id, ...spell };
@@ -57,10 +56,14 @@ const useGameStore = create((set, get) => ({
   character: initialCharacter,
   characterList: [], // List of all characters for the user
   
+  // Content Cache
+  contentLoaded: false,
+
   // Game Mode: 'narrative' or 'combat'
   gameMode: 'narrative',
   
   // Adventure State
+  currentCampaignId: null,
   currentAdventureId: 'demo-adventure',
   currentNodeId: 'intro',
   log: [{ id: 1, text: "Welcome to the adventure...", type: 'narrative' }],
@@ -79,6 +82,42 @@ const useGameStore = create((set, get) => ({
   pendingRoll: null, // { type: 'initiative'|'attack'|'damage'|'check', sides: 20, modifier: 0, targetId: null, label: '...' }
 
   // Actions
+  initializeContent: async () => {
+      const { contentLoaded } = get();
+      if (contentLoaded) return;
+
+      try {
+          if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+              set({ contentLoaded: true });
+              return;
+          }
+
+          // Fetch Items
+          const itemSnap = await getDocs(collection(db, 'content_items'));
+          if (!itemSnap.empty) {
+              const newItems = {};
+              itemSnap.forEach(doc => { newItems[doc.id] = { id: doc.id, ...doc.data() }; });
+              // Merge or replace? For admin mode, we want source of truth from DB.
+              // Updating the export variable is tricky in module system.
+              // We should probably rely on state for lookup, or update the object ref.
+              Object.assign(itemLookup, newItems);
+          }
+
+          // Fetch Spells
+          const spellSnap = await getDocs(collection(db, 'content_spells'));
+          if (!spellSnap.empty) {
+              const newSpells = {};
+              spellSnap.forEach(doc => { newSpells[doc.id] = { id: doc.id, ...doc.data() }; });
+              Object.assign(spellLookup, newSpells);
+          }
+
+          set({ contentLoaded: true });
+          console.log("Content initialized from Firestore.");
+      } catch (e) {
+          console.error("Failed to init content:", e);
+      }
+  },
+
   setGameMode: (mode) => set({ gameMode: mode }),
   
   updateCharacter: (updates) => set((state) => ({ 
@@ -697,7 +736,7 @@ const useGameStore = create((set, get) => ({
   },
 
   saveGame: async (uid) => {
-      const { character, log, currentNodeId, currentAdventureId, gameMode, combat } = get();
+      const { character, log, currentNodeId, currentAdventureId, currentCampaignId, gameMode, combat } = get();
 
       // Ensure character has an ID
       if (!character.id) {
@@ -710,6 +749,7 @@ const useGameStore = create((set, get) => ({
           log,
           currentNodeId,
           currentAdventureId,
+          currentCampaignId,
           gameMode,
           combat,
           lastSaved: new Date().toISOString()
@@ -785,6 +825,7 @@ const useGameStore = create((set, get) => ({
                 log: data.log,
                 currentNodeId: data.currentNodeId,
                 currentAdventureId: data.currentAdventureId,
+                currentCampaignId: data.currentCampaignId || null,
                 gameMode: data.gameMode,
                 combat: data.combat
             });
@@ -813,6 +854,8 @@ const useGameStore = create((set, get) => ({
           character: newCharacter,
           log: [{ id: 1, text: "Your adventure begins...", type: 'narrative' }],
           currentNodeId: 'intro',
+          currentAdventureId: 'demo-adventure', // Default start
+          currentCampaignId: null,
           gameMode: 'narrative',
           combat: { active: false, round: 0, turnOrder: [], currentTurnIndex: 0, victoryNode: null, defeatNode: null }
       });
@@ -822,6 +865,16 @@ const useGameStore = create((set, get) => ({
 
       // Refresh list
       await get().loadCharacterList(uid);
+  },
+
+  startAdventure: (adventureId, campaignId = null) => {
+      set({
+          currentAdventureId: adventureId,
+          currentCampaignId: campaignId,
+          currentNodeId: 'intro', // Assuming all adventures start at 'intro' node
+          gameMode: 'narrative',
+          log: [{ id: Date.now(), text: "Starting new adventure...", type: 'system' }]
+      });
   }
 }));
 
