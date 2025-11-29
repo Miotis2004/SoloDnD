@@ -10,9 +10,9 @@ import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { combat, performPlayerAttack, addToLog } = useGameStore();
+  const { combat, initiatePlayerAttack, addToLog } = useGameStore();
 
-  const handleAction = (actionType) => {
+  const handleAction = (actionType, targetId, spellId) => {
     if (combat.active) {
        // Combat Logic
        const currentPlayer = combat.turnOrder[combat.currentTurnIndex];
@@ -22,21 +22,33 @@ const GameBoard = () => {
        }
 
        if (actionType === 'attack') {
-          // Auto-target the first living enemy for now
-          // Future: Add target selection UI
-          const target = combat.turnOrder.find(c => c.type !== 'player' && !c.isDead);
-          if (target) {
-            performPlayerAttack(target.id);
+          if (targetId) {
+            initiatePlayerAttack(targetId);
           } else {
-            addToLog({ text: "No valid targets!", type: 'system' });
+            addToLog({ text: "No target selected!", type: 'system' });
+          }
+       } else if (actionType === 'cast') {
+          // targetId is target, spellId is... passed as 3rd arg
+          if (spellId) {
+             useGameStore.getState().castSpell(targetId, spellId);
+          } else {
+             addToLog({ text: "No spell selected!", type: 'system' });
           }
        } else {
           addToLog({ text: `Action ${actionType} not implemented yet.`, type: 'system' });
        }
 
     } else {
-       // Non-combat interaction (if any)
-       addToLog({ text: "You can't do that right now.", type: 'system' });
+       // Non-combat interaction
+       if (actionType === 'rest') {
+           useGameStore.getState().performLongRest();
+       } else if (actionType === 'cast') {
+           if (spellId) {
+               useGameStore.getState().castSpell(targetId, spellId);
+           }
+       } else {
+           addToLog({ text: "You can't do that right now.", type: 'system' });
+       }
     }
   };
 
