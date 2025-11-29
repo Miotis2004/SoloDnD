@@ -25,7 +25,20 @@ const ActionButton = ({ icon, label, onClick, variant = 'default' }) => {
 };
 
 const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) => {
-  const { gameMode } = useGameStore();
+  const { gameMode, combat } = useGameStore();
+  const [targetId, setTargetId] = React.useState('');
+
+  const enemies = React.useMemo(() => {
+    if (!combat || !combat.turnOrder) return [];
+    return combat.turnOrder.filter(c => c.type !== 'player' && !c.isDead);
+  }, [combat]);
+
+  React.useEffect(() => {
+    // Auto-select first enemy if target is invalid or not set
+    if (enemies.length > 0 && (!targetId || !enemies.find(e => e.id === targetId))) {
+      setTargetId(enemies[0].id);
+    }
+  }, [enemies, targetId]);
 
   return (
     <Card title="Actions" className="md:col-span-1 md:row-span-2">
@@ -55,22 +68,40 @@ const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) =>
         ) : (
           <>
             <div className="text-xs font-bold text-slate-500 uppercase mb-2">Combat Actions</div>
+
+            {/* Target Selector */}
+            <div className="mb-2">
+              <label className="text-xs text-slate-400 block mb-1">Target</label>
+              <select
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white"
+              >
+                {enemies.map(enemy => (
+                  <option key={enemy.id} value={enemy.id}>
+                    {enemy.name} (HP: {enemy.currentHp})
+                  </option>
+                ))}
+                {enemies.length === 0 && <option>No targets</option>}
+              </select>
+            </div>
+
             <ActionButton 
               icon={Sword} 
               label="Main Hand Attack" 
               variant="combat"
-              onClick={() => onAction('attack')}
+              onClick={() => onAction('attack', targetId)}
             />
             <ActionButton 
               icon={Zap} 
               label="Cast Spell" 
               variant="magic"
-              onClick={() => onAction('cast')}
+              onClick={() => onAction('cast', targetId)}
             />
             <ActionButton 
               icon={Hand} 
               label="Use Item / Interaction" 
-              onClick={() => onAction('interact')}
+              onClick={() => onAction('interact', targetId)}
             />
           </>
         )}

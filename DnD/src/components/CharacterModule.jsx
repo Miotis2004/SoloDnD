@@ -17,7 +17,7 @@ const StatBlock = ({ label, value }) => {
 };
 
 const CharacterModule = () => {
-  const { character, equipItem, useItem } = useGameStore();
+  const { character, equipItem, useItem: consumeItem } = useGameStore();
   const { hp, ac, stats, initiative, inventory, equipment } = character;
   const [activeTab, setActiveTab] = useState('stats');
 
@@ -124,7 +124,7 @@ const CharacterModule = () => {
                 )}
                 {isConsumable && (
                   <button
-                    onClick={() => useItem(invItem.id)}
+                    onClick={() => consumeItem(invItem.id)}
                     className="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white text-xs py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
                   >
                     <MousePointer size={12}/> Use

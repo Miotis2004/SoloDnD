@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { auth } from '../services/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const useAuthStore = create((set) => ({
   user: null,
@@ -12,6 +12,20 @@ const useAuthStore = create((set) => ({
       set({ user, loading: false });
     });
     return unsubscribe;
+  },
+
+  register: async (email, password) => {
+    try {
+      set({ loading: true, error: null });
+      if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+        console.warn("Using Mock Registration.");
+        set({ user: { uid: "mock-user-123", email: email }, loading: false });
+        return;
+      }
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      set({ error: error.message, loading: false });
+    }
   },
 
   login: async (email, password) => {

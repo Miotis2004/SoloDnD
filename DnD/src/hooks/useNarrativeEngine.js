@@ -51,9 +51,14 @@ const useNarrativeEngine = () => {
       setGameMode('narrative');
     }
 
-  }, [currentNodeId, addToLog, setGameMode, node, startCombat]);
+  }, [currentNodeId, addToLog, setGameMode, node, startCombat, allMonsters]);
 
   const handleChoice = (choice) => {
+    // Special Actions defined in Adventure JSON
+    if (choice.action === 'loot') {
+        useGameStore.getState().lootBodies(choice.loot);
+    }
+
     // Handle Skill Checks
     if (choice.check) {
       const { stat, dc, success, failure } = choice.check;
