@@ -107,7 +107,12 @@ const AdminDashboard = ({ onClose }) => {
           await AdminService.seedDatabase();
           alert("Seeding Complete. Content successfully uploaded to Firestore.");
       } catch (e) {
-          alert("Seeding Failed: " + e.message);
+          console.error(e);
+          if (e.code === 'permission-denied') {
+              alert("Seeding Failed: Permission Denied.\n\nPlease ensure your Firestore Rules allow writes to 'content_*' collections for authenticated users.\n\nSee 'firestore.rules' in the project root for the required configuration.");
+          } else {
+              alert("Seeding Failed: " + e.message);
+          }
       } finally {
           setSeeding(false);
       }
