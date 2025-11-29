@@ -103,9 +103,14 @@ const AdminDashboard = ({ onClose }) => {
   const handleSeed = async () => {
       if(!confirm("This will overwrite existing data in Firestore with local JSON files. Continue?")) return;
       setSeeding(true);
-      await AdminService.seedDatabase();
-      setSeeding(false);
-      alert("Seeding Complete.");
+      try {
+          await AdminService.seedDatabase();
+          alert("Seeding Complete. Content successfully uploaded to Firestore.");
+      } catch (e) {
+          alert("Seeding Failed: " + e.message);
+      } finally {
+          setSeeding(false);
+      }
   };
 
   return (

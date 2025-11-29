@@ -17,45 +17,72 @@ export const AdminService = {
     // Seed Logic
     seedDatabase: async () => {
         try {
-            const batch = writeBatch(db);
+            // Helper to chunk batches (Firestore limit is 500 ops per batch)
+            const batches = [];
+            let currentBatch = writeBatch(db);
+            let opCount = 0;
+
+            const addOp = (ref, data) => {
+                currentBatch.set(ref, data);
+                opCount++;
+                if (opCount >= 450) { // Safety buffer below 500
+                    batches.push(currentBatch);
+                    currentBatch = writeBatch(db);
+                    opCount = 0;
+                }
+            };
 
             // Seed Items
-            // Items are nested categories in JSON. Flatten them or keep structure?
-            // Let's store individual items as docs for easier editing.
+            let itemCount = 0;
             Object.values(itemsData).forEach(category => {
                 Object.values(category).forEach(item => {
-                    const ref = doc(db, COLLECTIONS.ITEMS, item.name.toLowerCase().replace(/\s+/g, '_')); // simplistic ID
-                    batch.set(ref, item);
+                    const ref = doc(db, COLLECTIONS.ITEMS, item.name.toLowerCase().replace(/\s+/g, '_'));
+                    addOp(ref, item);
+                    itemCount++;
                 });
             });
+            console.log(`Prepared ${itemCount} items.`);
 
             // Seed Monsters
-            // Monsters are nested by CR.
+            let monsterCount = 0;
             Object.values(monstersData).forEach(crGroup => {
                 Object.entries(crGroup).forEach(([id, monster]) => {
                     const ref = doc(db, COLLECTIONS.MONSTERS, id);
-                    batch.set(ref, { ...monster, id });
+                    addOp(ref, { ...monster, id });
+                    monsterCount++;
                 });
             });
+            console.log(`Prepared ${monsterCount} monsters.`);
 
             // Seed Spells
+            let spellCount = 0;
             Object.values(spellsData).forEach(levelGroup => {
                 Object.entries(levelGroup).forEach(([id, spell]) => {
                     const ref = doc(db, COLLECTIONS.SPELLS, id);
-                    batch.set(ref, { ...spell, id });
+                    addOp(ref, { ...spell, id });
+                    spellCount++;
                 });
             });
+            console.log(`Prepared ${spellCount} spells.`);
 
             // Seed Demo Adventure
             const advRef = doc(db, COLLECTIONS.ADVENTURES, adventureData.id);
-            batch.set(advRef, adventureData);
+            addOp(advRef, adventureData);
 
-            await batch.commit();
+            // Push final batch
+            if (opCount > 0) batches.push(currentBatch);
+
+            console.log(`Committing ${batches.length} batches...`);
+
+            // Execute all batches
+            await Promise.all(batches.map(b => b.commit()));
+
             console.log("Database seeded successfully.");
             return true;
         } catch (error) {
             console.error("Error seeding database:", error);
-            return false;
+            // Throw error so UI can catch it
+            throw error;
         }
     },
 
