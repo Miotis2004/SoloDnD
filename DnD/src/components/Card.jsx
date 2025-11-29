@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { Maximize2, X } from 'lucide-react';
@@ -11,9 +11,10 @@ const cn = (...inputs) => {
 
 const Card = ({ title, children, className, defaultExpanded = false, actions }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const uniqueId = useId();
 
   // Ensure title is a string for layoutId, or generate a random one if not
-  const layoutId = typeof title === 'string' ? `card-container-${title}` : `card-container-${Math.random()}`;
+  const layoutId = typeof title === 'string' ? `card-container-${title}` : `card-container-${uniqueId}`;
 
   return (
     <>
