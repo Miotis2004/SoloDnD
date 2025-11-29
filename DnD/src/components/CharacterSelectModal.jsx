@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import useGameStore from '../store/useGameStore';
 import useAuthStore from '../store/useAuthStore';
-import { Plus, Play } from 'lucide-react';
+import { Plus, Play, Trash2 } from 'lucide-react';
 // eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion';
 import CharacterCreator from './CharacterCreator';
 
 const CharacterSelectModal = ({ isOpen, onClose }) => {
   const { user } = useAuthStore();
-  const { loadCharacterList, characterList, loadGame } = useGameStore();
+  const { loadCharacterList, characterList, loadGame, deleteCharacter } = useGameStore();
   const [view, setView] = useState('list'); // 'list' or 'create'
 
   useEffect(() => {
@@ -23,6 +23,13 @@ const CharacterSelectModal = ({ isOpen, onClose }) => {
   const handlePlay = (charId) => {
       loadGame(user.uid, charId);
       onClose();
+  };
+
+  const handleDelete = async (e, charId) => {
+      e.stopPropagation();
+      if (window.confirm("Are you sure you want to delete this character? This cannot be undone.")) {
+          await deleteCharacter(user.uid, charId);
+      }
   };
 
   if (!isOpen) return null;
@@ -82,6 +89,14 @@ const CharacterSelectModal = ({ isOpen, onClose }) => {
                                 className="mt-4 w-full bg-slate-700 hover:bg-green-700 text-white py-2 rounded flex items-center justify-center gap-2 transition-colors font-bold"
                             >
                                 <Play size={16} /> Play
+                            </button>
+
+                            <button
+                                onClick={(e) => handleDelete(e, char.id)}
+                                className="absolute top-2 right-2 p-1.5 bg-slate-900/50 hover:bg-red-900/80 rounded-full text-slate-500 hover:text-red-200 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Delete Character"
+                            >
+                                <Trash2 size={14} />
                             </button>
                         </div>
                     ))}

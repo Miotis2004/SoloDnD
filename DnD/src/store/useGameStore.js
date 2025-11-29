@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db } from '../services/firebase';
-import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import itemsData from '../data/items.json';
 import spellsData from '../data/spells.json';
 
@@ -866,6 +866,21 @@ const useGameStore = create((set, get) => ({
 
       // Refresh list
       await get().loadCharacterList(uid);
+  },
+
+  deleteCharacter: async (uid, characterId) => {
+      try {
+          if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+              const saves = JSON.parse(localStorage.getItem(`saves_${uid}`) || "{}");
+              delete saves[characterId];
+              localStorage.setItem(`saves_${uid}`, JSON.stringify(saves));
+          } else {
+              await deleteDoc(doc(db, "users", uid, "characters", characterId));
+          }
+          await get().loadCharacterList(uid);
+      } catch (error) {
+          console.error("Failed to delete character", error);
+      }
   },
 
   startAdventure: async (adventureId, campaignId = null) => {
