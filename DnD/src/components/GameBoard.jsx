@@ -10,7 +10,7 @@ import useNarrativeEngine from '../hooks/useNarrativeEngine';
 
 const GameBoard = () => {
   const { handleChoice, choices } = useNarrativeEngine();
-  const { combat, performPlayerAttack, addToLog } = useGameStore();
+  const { combat, initiatePlayerAttack, addToLog } = useGameStore();
 
   const handleAction = (actionType, targetId) => {
     if (combat.active) {
@@ -23,7 +23,7 @@ const GameBoard = () => {
 
        if (actionType === 'attack') {
           if (targetId) {
-            performPlayerAttack(targetId);
+            initiatePlayerAttack(targetId);
           } else {
             addToLog({ text: "No target selected!", type: 'system' });
           }

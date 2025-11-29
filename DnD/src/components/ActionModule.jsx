@@ -25,13 +25,17 @@ const ActionButton = ({ icon, label, onClick, variant = 'default' }) => {
 };
 
 const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) => {
-  const { gameMode, combat } = useGameStore();
+  const { gameMode, combat, pendingRoll } = useGameStore();
   const [targetId, setTargetId] = React.useState('');
 
   const enemies = React.useMemo(() => {
     if (!combat || !combat.turnOrder) return [];
     return combat.turnOrder.filter(c => c.type !== 'player' && !c.isDead);
   }, [combat]);
+
+  // Check if it is player's turn
+  const isPlayerTurn = combat?.active && combat?.turnOrder[combat.currentTurnIndex]?.type === 'player';
+  const isDisabled = pendingRoll !== null || !isPlayerTurn;
 
   React.useEffect(() => {
     // Auto-select first enemy if target is invalid or not set
@@ -41,7 +45,10 @@ const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) =>
   }, [enemies, targetId]);
 
   return (
-    <Card title="Actions" className="md:col-span-1 md:row-span-2">
+    <Card
+        title="Actions"
+        className={`md:col-span-1 md:row-span-2 transition-opacity ${isDisabled && gameMode === 'combat' ? 'opacity-50 pointer-events-none' : ''}`}
+    >
       <div className="space-y-3">
         {gameMode === 'narrative' ? (
           <div className="flex flex-col gap-2">
@@ -49,7 +56,8 @@ const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) =>
               <button
                 key={idx}
                 onClick={() => onNarrativeChoice(choice)}
-                className="p-3 text-left bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-200 transition-colors"
+                disabled={pendingRoll !== null}
+                className={`p-3 text-left bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-slate-200 transition-colors ${pendingRoll ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="font-semibold">{choice.label}</div>
                 {choice.check && (

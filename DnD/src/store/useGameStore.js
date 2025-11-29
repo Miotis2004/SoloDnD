@@ -64,6 +64,9 @@ const useGameStore = create((set, get) => ({
     defeatNode: null
   },
 
+  // Pending Roll State
+  pendingRoll: null, // { type: 'initiative'|'attack'|'damage'|'check', sides: 20, modifier: 0, targetId: null, label: '...' }
+
   // Actions
   setGameMode: (mode) => set({ gameMode: mode }),
   
@@ -172,22 +175,7 @@ const useGameStore = create((set, get) => ({
   startCombat: (enemies, victoryNode, defeatNode) => {
     const { character, rollDice, addToLog } = get();
 
-    // 1. Roll Initiative for Player
-    const playerInit = rollDice(20, character.initiative);
-    const playerCombatant = {
-      id: 'player',
-      name: character.name,
-      type: 'player',
-      hp: character.hp.current,
-      maxHp: character.hp.max,
-      ac: character.ac,
-      initiative: playerInit.total,
-      isDead: false
-    };
-
-    addToLog({ text: `Rolled Initiative: ${playerInit.total}`, type: 'system' });
-
-    // 2. Roll Initiative for Enemies
+    // 1. Roll Initiative for Enemies (Auto)
     const enemyCombatants = enemies.map((enemy, idx) => {
       const init = rollDice(20, enemy.initiativeBonus || 0);
       return {
@@ -200,28 +188,26 @@ const useGameStore = create((set, get) => ({
       };
     });
 
-    // 3. Sort Turn Order
-    const turnOrder = [playerCombatant, ...enemyCombatants].sort((a, b) => b.initiative - a.initiative);
-
+    // 2. Set Up Combat State with temporary turn order (waiting for player)
     set({
       gameMode: 'combat',
       combat: {
         active: true,
         round: 1,
-        turnOrder,
+        turnOrder: enemyCombatants, // Will add player after roll
         currentTurnIndex: 0,
         victoryNode,
         defeatNode
+      },
+      pendingRoll: {
+        type: 'initiative',
+        sides: 20,
+        modifier: character.initiative,
+        label: "Roll for Initiative!"
       }
     });
 
-    addToLog({
-      text: `Combat Started! Turn Order: ${turnOrder.map(c => c.name).join(', ')}`,
-      type: 'combat'
-    });
-
-    // If first turn is enemy, trigger nextTurn logic (handled by UI or manual call? Let's check next)
-    // For now, we just set state. The consumer should check whose turn it is.
+    addToLog({ text: "Combat Started! Roll Initiative!", type: 'combat' });
   },
 
   nextTurn: () => {
@@ -305,100 +291,195 @@ const useGameStore = create((set, get) => ({
 
          // End Enemy Turn
          get().nextTurn();
-       }, 1000);
+       }, 2500); // Slower pacing for better UX
+    } else {
+        // Player's Turn
+        addToLog({ text: "It's your turn! Select an action.", type: 'combat' });
     }
   },
 
-  performPlayerAttack: (targetId) => {
-    const { combat, rollDice, addToLog, setGameMode, setCurrentNode, character } = get();
+  initiatePlayerAttack: (targetId) => {
+    const { combat, character, addToLog } = get();
     const targetIndex = combat.turnOrder.findIndex(c => c.id === targetId);
     if (targetIndex === -1) return;
-
-    const target = combat.turnOrder[targetIndex];
-    if (target.isDead) return;
-
-    // Determine Weapon
-    const weaponId = character.equipment.mainHand;
-    const weapon = weaponId ? itemLookup[weaponId] : null;
-    const weaponName = weapon ? weapon.name : "Unarmed Strike";
 
     // Stats calc (Simplified)
     const strMod = Math.floor((character.stats.str - 10) / 2);
     const attackBonus = character.proficiencyBonus + strMod;
 
-    const roll = rollDice(20, attackBonus);
-    const hit = roll.total >= target.ac;
+    addToLog({ text: `Attacking target... Please roll d20 to hit.`, type: 'system' });
 
-    if (hit) {
-      // Parse Damage: "1d8" or "1d6" etc.
-      let damageDice = "1"; // Unarmed default
-      let damageSides = 4;
-
-      if (weapon && weapon.damage) {
-         const parts = weapon.damage.split('d');
-         damageDice = parts[0];
-         damageSides = parseInt(parts[1]);
-      }
-
-      const numDice = parseInt(damageDice) || 1;
-      let damageTotal = strMod; // Add Strength mod to damage
-
-      for (let i = 0; i < numDice; i++) {
-         damageTotal += rollDice(damageSides).roll;
-      }
-
-      const newHp = Math.max(0, target.currentHp - damageTotal);
-      const isDead = newHp === 0;
-
-      // Update Combat State
-      const newTurnOrder = [...combat.turnOrder];
-      newTurnOrder[targetIndex] = {
-        ...target,
-        currentHp: newHp,
-        isDead
-      };
-
-      set((state) => ({
-        combat: {
-          ...state.combat,
-          turnOrder: newTurnOrder
+    set({
+        pendingRoll: {
+            type: 'attack',
+            sides: 20,
+            modifier: attackBonus,
+            targetId: targetId,
+            label: 'Attack Roll'
         }
-      }));
+    });
+  },
 
-      addToLog({
-         text: `You attack ${target.name} with ${weaponName}! Rolled ${roll.total} (vs AC ${target.ac}). HIT! Dealt ${damageTotal} damage.`,
-         type: 'combat'
-      });
+  resolveDiceRoll: (sides, resultValue) => {
+      const { pendingRoll, character, combat, rollDice, addToLog, setGameMode, setCurrentNode } = get();
+      if (!pendingRoll) return;
 
-      if (isDead) {
-        addToLog({ text: `${target.name} falls!`, type: 'combat' });
+      const total = resultValue + pendingRoll.modifier;
+
+      // --- INITIATIVE ---
+      if (pendingRoll.type === 'initiative') {
+          const playerCombatant = {
+            id: 'player',
+            name: character.name,
+            type: 'player',
+            hp: character.hp.current,
+            maxHp: character.hp.max,
+            ac: character.ac,
+            initiative: total,
+            isDead: false
+          };
+
+          addToLog({ text: `Rolled Initiative: ${total}`, type: 'system' });
+
+          const newTurnOrder = [playerCombatant, ...combat.turnOrder].sort((a, b) => b.initiative - a.initiative);
+
+          set({
+              combat: { ...combat, turnOrder: newTurnOrder, currentTurnIndex: 0 },
+              pendingRoll: null
+          });
+
+          // Check if it's already someone else's turn (if player is not first)
+          if (newTurnOrder[0].id !== 'player') {
+             // Trigger nextTurn immediately to start AI or waiting
+             setTimeout(() => get().nextTurn(), 500);
+          } else {
+             addToLog({ text: `It is your turn!`, type: 'combat' });
+          }
       }
 
-      // Check Victory
-      const allEnemiesDead = newTurnOrder.every(c => c.type === 'player' || c.isDead);
-      if (allEnemiesDead) {
-         setTimeout(() => {
-            addToLog({ text: "Victory!", type: 'combat' });
-            // Look for victory hook (looting etc)
-            const victoryNode = combat.victoryNode;
+      // --- ATTACK ROLL ---
+      else if (pendingRoll.type === 'attack') {
+         const targetId = pendingRoll.targetId;
+         const target = combat.turnOrder.find(c => c.id === targetId);
 
-            // If the victory node allows looting, maybe we trigger it here?
-            // For now, standard transition.
-            setGameMode('narrative');
-            setCurrentNode(victoryNode);
-            set({ combat: { ...combat, active: false } });
-         }, 1000);
-         return;
+         if (!target) {
+            set({ pendingRoll: null });
+            get().nextTurn();
+            return;
+         }
+
+         const hit = total >= target.ac;
+         if (hit) {
+             // Setup Damage Roll
+            const weaponId = character.equipment.mainHand;
+            const weapon = weaponId ? itemLookup[weaponId] : null;
+
+            let damageDice = "1";
+            let damageSides = 4; // Unarmed
+            if (weapon && weapon.damage) {
+                const parts = weapon.damage.split('d');
+                damageDice = parts[0];
+                damageSides = parseInt(parts[1]);
+            }
+            // Note: Simplistic, assuming 1 die for pending roll. If multiple dice (2d6), we might need a loop or multi-click.
+            // For this version, let's assume we roll one die type and multiply or sum logic is internal?
+            // "6. User clicks [Weapon Die]." -> Implies single click.
+            // We will just ask for the die type. If it's 2d6, we will roll 2d6 internally on that one click for simplicity of UI?
+            // Or better: The prompt says "Roll d6 for damage". The result `resolveDiceRoll` receives is just ONE roll.
+            // If weapon is 2d6, we need to roll the other dice automatically?
+            // Let's keep it simple: We ask for the die sides. If it's 2d6, we treat the user input as the first die, and auto-roll the rest.
+
+            const numDice = parseInt(damageDice) || 1;
+            const strMod = Math.floor((character.stats.str - 10) / 2);
+
+            addToLog({ text: `Rolled ${total} (vs AC ${target.ac}). HIT! Roll d${damageSides} for damage.`, type: 'combat' });
+
+            set({
+                pendingRoll: {
+                    type: 'damage',
+                    sides: damageSides,
+                    modifier: strMod, // Add Str to dmg
+                    targetId: targetId,
+                    multiplier: numDice, // Store how many dice
+                    label: 'Damage Roll'
+                }
+            });
+
+         } else {
+             addToLog({ text: `Rolled ${total} (vs AC ${target.ac}). MISS!`, type: 'combat' });
+             set({ pendingRoll: null });
+             get().nextTurn();
+         }
       }
 
-    } else {
-      addToLog({
-         text: `You attack ${target.name} with ${weaponName}! Rolled ${roll.total} (vs AC ${target.ac}). MISS!`,
-         type: 'combat'
-      });
-    }
+      // --- DAMAGE ROLL ---
+      else if (pendingRoll.type === 'damage') {
+          const targetId = pendingRoll.targetId;
+          const targetIndex = combat.turnOrder.findIndex(c => c.id === targetId);
+          if (targetIndex === -1) {
+             set({ pendingRoll: null });
+             get().nextTurn();
+             return;
+          }
 
-    get().nextTurn();
+          // Calculate total damage
+          // The 'resultValue' is the first die.
+          let damageTotal = resultValue;
+
+          // Roll remaining dice if any
+          if (pendingRoll.multiplier > 1) {
+              for(let i=1; i < pendingRoll.multiplier; i++) {
+                  damageTotal += rollDice(pendingRoll.sides).roll;
+              }
+          }
+
+          damageTotal += pendingRoll.modifier;
+
+          const target = combat.turnOrder[targetIndex];
+          const newHp = Math.max(0, target.currentHp - damageTotal);
+          const isDead = newHp === 0;
+
+          const newTurnOrder = [...combat.turnOrder];
+          newTurnOrder[targetIndex] = { ...target, currentHp: newHp, isDead };
+
+          addToLog({ text: `Dealt ${damageTotal} damage to ${target.name}.`, type: 'combat' });
+          if (isDead) {
+              addToLog({ text: `${target.name} falls!`, type: 'combat' });
+          }
+
+          set({
+              combat: { ...combat, turnOrder: newTurnOrder },
+              pendingRoll: null
+          });
+
+          // Check Victory
+          const allEnemiesDead = newTurnOrder.every(c => c.type === 'player' || c.isDead);
+          if (allEnemiesDead) {
+             setTimeout(() => {
+                addToLog({ text: "Victory!", type: 'combat' });
+                const victoryNode = combat.victoryNode;
+                setGameMode('narrative');
+                setCurrentNode(victoryNode);
+                set({ combat: { ...combat, active: false } });
+             }, 1000);
+          } else {
+             get().nextTurn();
+          }
+      }
+
+      // --- SKILL CHECK ---
+      else if (pendingRoll.type === 'check') {
+          const { dc, success, failure, label } = pendingRoll.checkData;
+          const passed = total >= dc;
+
+          addToLog({
+             text: `Check ${label}: Rolled ${total} (vs DC ${dc}). ${passed ? "Success!" : "Failure!"}`,
+             type: 'system'
+          });
+
+          set({ pendingRoll: null });
+          setCurrentNode(passed ? success : failure);
+      }
   },
 
   castSpell: (targetId) => {

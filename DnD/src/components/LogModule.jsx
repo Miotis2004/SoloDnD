@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import useGameStore from '../store/useGameStore';
 import Card from './Card';
+import { Loader2 } from 'lucide-react';
 
 const LogModule = () => {
-  const { log } = useGameStore();
+  const { log, pendingRoll } = useGameStore();
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -26,6 +27,14 @@ const LogModule = () => {
             <p className="leading-relaxed">{entry.text}</p>
           </div>
         ))}
+
+        {pendingRoll && (
+             <div className="p-3 rounded-lg border bg-yellow-900/20 border-yellow-700/50 text-yellow-200 flex items-center gap-3 animate-pulse">
+                <Loader2 className="animate-spin" size={20} />
+                <span className="font-bold text-sm">Waiting for Player: {pendingRoll.label} (d{pendingRoll.sides})</span>
+             </div>
+        )}
+
         <div ref={bottomRef} />
       </div>
     </Card>
