@@ -6,6 +6,7 @@ const useNarrativeEngine = () => {
   const { 
     currentNodeId, 
     activeAdventure,
+    activeAdventure,
     setCurrentNode, 
     addToLog, 
     setGameMode, 
@@ -13,6 +14,9 @@ const useNarrativeEngine = () => {
     startCombat
   } = useGameStore();
   
+  // Use active adventure if loaded, else fallback to default
+  const adventureData = activeAdventure || defaultAdventureData;
+
   // Derive choices directly from the current node ID and data
   // Note: activeAdventure might be null if loading
   const node = activeAdventure?.nodes ? activeAdventure.nodes[currentNodeId] : null;
@@ -82,10 +86,27 @@ const useNarrativeEngine = () => {
     // Handle Skill Checks
     if (choice.check) {
       const { stat } = choice.check;
+      const { stat } = choice.check;
       // Calculate mod
       const statVal = character.stats[stat];
       const mod = Math.floor((statVal - 10) / 2);
       
+      addToLog({ text: `Skill Check Required: ${choice.label}. Roll d20.`, type: 'system' });
+
+      // Set Pending Roll
+      useGameStore.setState({
+          pendingRoll: {
+              type: 'check',
+              sides: 20,
+              modifier: mod,
+              label: choice.label,
+              checkData: choice.check // { stat, dc, success, failure }
+          }
+      });
+      return; // Stop here, wait for roll
+    }
+
+    if (choice.target) {
       addToLog({ text: `Skill Check Required: ${choice.label}. Roll d20.`, type: 'system' });
 
       // Set Pending Roll
