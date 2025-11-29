@@ -36,7 +36,15 @@
       "text": "You stand victorious over the fallen goblins. The path is clear.",
       "type": "narrative",
       "choices": [
-        { "label": "Loot the bodies", "target": "intro" },
+        {
+          "label": "Loot the bodies",
+          "target": "intro",
+          "action": "loot",
+          "loot": [
+             { "id": "scimitar", "qty": 1 },
+             { "id": "healing_potion", "qty": 1 }
+          ]
+        },
         { "label": "Continue to Phandalin", "target": "intro" }
       ]
     },
