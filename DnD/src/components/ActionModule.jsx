@@ -30,7 +30,8 @@ const ActionButton = ({ icon, label, onClick, variant = 'default', disabled = fa
 };
 
 const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) => {
-  const { gameMode, combat, pendingRoll, character } = useGameStore();
+  // eslint-disable-next-line no-unused-vars
+  const { gameMode, combat, pendingRoll, character, contentLoaded } = useGameStore();
   const [targetId, setTargetId] = React.useState('');
   const [showSpells, setShowSpells] = React.useState(false);
 
@@ -134,6 +135,15 @@ const ActionModule = ({ onAction, narrativeChoices = [], onNarrativeChoice }) =>
         {showSpells ? renderSpellMenu() : (
             gameMode === 'narrative' ? (
             <div className="flex flex-col gap-2">
+                {/* Spellbook Button for Narrative Mode */}
+                <ActionButton
+                    icon={Zap}
+                    label="Cast Spell"
+                    variant="magic"
+                    onClick={() => setShowSpells(true)}
+                    disabled={pendingRoll !== null}
+                />
+
                 {narrativeChoices.map((choice, idx) => (
                 <button
                     key={idx}
