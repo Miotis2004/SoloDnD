@@ -1,15 +1,31 @@
 import { create } from 'zustand';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
-const useAuthStore = create((set) => ({
+const emptyProfile = {
+  displayName: '',
+  pronouns: '',
+  bio: ''
+};
+
+const useAuthStore = create((set, get) => ({
   user: null,
   loading: true,
   error: null,
-  
+  profile: emptyProfile,
+  profileLoading: false,
+  profileError: null,
+
   initializeListener: () => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       set({ user, loading: false });
+
+      if (user?.uid) {
+        await get().loadProfile(user.uid);
+      } else {
+        set({ profile: emptyProfile, profileLoading: false, profileError: null });
+      }
     });
     return unsubscribe;
   },
@@ -24,6 +40,69 @@ const useAuthStore = create((set) => ({
   addPurchase: (contentId) => set((state) => ({
       purchasedContent: [...state.purchasedContent, contentId]
   })),
+
+  updateProfileField: (field, value) => set((state) => ({
+    profile: { ...state.profile, [field]: value }
+  })),
+
+  loadProfile: async (uid) => {
+    try {
+      set({ profileLoading: true, profileError: null });
+
+      if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+        const cachedProfile = JSON.parse(localStorage.getItem(`profile_${uid}`) || '{}');
+        set({ profile: { ...emptyProfile, ...cachedProfile }, profileLoading: false });
+        return;
+      }
+
+      const profileRef = doc(db, 'users', uid);
+      const snap = await getDoc(profileRef);
+      const data = snap.exists() ? snap.data() : {};
+
+      set({
+        profile: {
+          ...emptyProfile,
+          displayName: data.displayName || data.name || '',
+          pronouns: data.pronouns || '',
+          bio: data.bio || ''
+        },
+        profileLoading: false
+      });
+    } catch (error) {
+      console.error('Failed to load profile', error);
+      set({ profileError: error.message, profileLoading: false });
+    }
+  },
+
+  saveProfile: async (uid) => {
+    const { profile } = get();
+
+    try {
+      set({ profileLoading: true, profileError: null });
+
+      if (import.meta.env.VITE_FIREBASE_API_KEY === "dummy-key") {
+        localStorage.setItem(`profile_${uid}`, JSON.stringify(profile));
+        set({ profileLoading: false });
+        return;
+      }
+
+      await setDoc(
+        doc(db, 'users', uid),
+        {
+          displayName: profile.displayName || '',
+          pronouns: profile.pronouns || '',
+          bio: profile.bio || '',
+          updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+      );
+
+      set({ profileLoading: false });
+    } catch (error) {
+      console.error('Failed to save profile', error);
+      set({ profileError: error.message, profileLoading: false });
+    }
+  },
 
   register: async (email, password) => {
     try {
