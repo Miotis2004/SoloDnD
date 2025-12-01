@@ -33,7 +33,8 @@ const initialCharacter = {
     offHand: null,
     body: null
   },
-  spells: []
+  spells: [],
+  completedAdventures: []
 };
 
 const useGameStore = create((set, get) => ({
@@ -653,67 +654,16 @@ const useGameStore = create((set, get) => ({
             }
           });
 
-      } else if (spell.attackType === 'buff' || spell.attackType === 'utility') {
-          addToLog({ text: `Effect applied: ${spell.description} (Mechanic not fully implemented)`, type: 'combat' });
-          get().nextTurn();
+      if (added) {
+          addToLog({ text: `Adventure '${adventureId}' marked as completed.`, type: 'system' });
       }
   },
 
-  performLongRest: () => {
-      const { character, addToLog, updateCharacter } = get();
-      // Restore HP
-      const newHp = { ...character.hp, current: character.hp.max };
-
-      // Restore Spell Slots (Reset to class max)
-      // This requires knowing max slots per level.
-      // For MVP, we can look at `CharacterCreator.jsx` logic or just assume full restore of *current structure*?
-      // Issue: `character.spellSlots` stores current. We lost "Max" info.
-      // Fix: We should store `maxSpellSlots` in character or look it up.
-      // For now, let's hardcode reset for known classes or just not reset slots (user only asked for "restore spell slots").
-      // Better approach: We need to know what the max is.
-      // Let's modify `character` to store `maxSpellSlots` on creation.
-      // I'll update `CharacterCreator` in a moment, but here I will use `character.maxSpellSlots` if it exists.
-
-      let newSlots = character.spellSlots;
-      if (character.maxSpellSlots) {
-          newSlots = { ...character.maxSpellSlots };
+  completeCurrentAdventure: () => {
+      const { currentAdventureId, completeAdventure } = get();
+      if (currentAdventureId) {
+          completeAdventure(currentAdventureId);
       }
-
-      updateCharacter({ hp: newHp, spellSlots: newSlots });
-      addToLog({ text: "Long Rest taken. HP and Spell Slots restored.", type: 'system' });
-  },
-
-  lootBodies: (lootTable = []) => {
-    const { character, addToLog } = get();
-    // Default Loot if none provided
-    const items = lootTable.length > 0 ? lootTable : [
-        { id: 'healing_potion', qty: 1 },
-        { id: 'gold', qty: 10 } // We don't track gold yet, but let's assume valid ID or ignore
-    ];
-
-    const newInventory = [...character.inventory];
-
-    items.forEach(newItem => {
-        // Check if item is valid in our DB (optional, but good safety)
-        if (!itemLookup[newItem.id] && newItem.id !== 'gold') return;
-
-        const existingIdx = newInventory.findIndex(i => i.id === newItem.id);
-        if (existingIdx > -1) {
-            newInventory[existingIdx] = {
-                ...newInventory[existingIdx],
-                qty: newInventory[existingIdx].qty + newItem.qty
-            };
-        } else {
-            newInventory.push(newItem);
-        }
-
-        const itemName = itemLookup[newItem.id]?.name || newItem.id;
-        addToLog({ text: `Looted ${newItem.qty}x ${itemName}`, type: 'system' });
-    });
-
-    set((state) => ({
-        character: { ...state.character, inventory: newInventory }
-    }));
   },
 
   saveGame: async (uid) => {
@@ -777,6 +727,8 @@ const useGameStore = create((set, get) => ({
             // Ensure Name exists
             if (!charObj.name) charObj.name = "Unknown Hero";
 
+            if (!charObj.completedAdventures) charObj.completedAdventures = [];
+
             list.push(charObj);
         });
         set({ characterList: list });
@@ -802,7 +754,7 @@ const useGameStore = create((set, get) => ({
 
         if (data) {
             set({
-                character: data.character,
+                character: loadedCharacter,
                 log: data.log,
                 currentNodeId: data.currentNodeId,
                 currentAdventureId: data.currentAdventureId,
