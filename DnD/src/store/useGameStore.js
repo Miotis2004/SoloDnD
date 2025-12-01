@@ -1,11 +1,7 @@
 import { create } from 'zustand';
 import { db } from '../services/firebase';
 import { doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-
-// Content Lookups (populated from Firestore)
-export let itemLookup = {};
-export let spellLookup = {};
-export let monsterLookup = {};
+import { hydrateLookups, itemLookup, spellLookup } from './contentLookups';
 
 // Initial state for a fresh character
 const initialCharacter = {
@@ -84,30 +80,18 @@ const useGameStore = create((set, get) => ({
 
           // Fetch Items
           const itemSnap = await getDocs(collection(db, 'content_items'));
-          if (!itemSnap.empty) {
-              const newItems = {};
-              itemSnap.forEach(doc => { newItems[doc.id] = { id: doc.id, ...doc.data() }; });
-              // Merge or replace? For admin mode, we want source of truth from DB.
-              // Updating the export variable is tricky in module system.
-              // We should probably rely on state for lookup, or update the object ref.
-              Object.assign(itemLookup, newItems);
-          }
-
-          // Fetch Spells
           const spellSnap = await getDocs(collection(db, 'content_spells'));
-          if (!spellSnap.empty) {
-              const newSpells = {};
-              spellSnap.forEach(doc => { newSpells[doc.id] = { id: doc.id, ...doc.data() }; });
-              Object.assign(spellLookup, newSpells);
-          }
-
-          // Fetch Monsters
           const monsterSnap = await getDocs(collection(db, 'content_monsters'));
-          if (!monsterSnap.empty) {
-              const newMonsters = {};
-              monsterSnap.forEach(doc => { newMonsters[doc.id] = { id: doc.id, ...doc.data() }; });
-              Object.assign(monsterLookup, newMonsters);
-          }
+
+          const newItems = {};
+          const newSpells = {};
+          const newMonsters = {};
+
+          itemSnap.forEach(doc => { newItems[doc.id] = { id: doc.id, ...doc.data() }; });
+          spellSnap.forEach(doc => { newSpells[doc.id] = { id: doc.id, ...doc.data() }; });
+          monsterSnap.forEach(doc => { newMonsters[doc.id] = { id: doc.id, ...doc.data() }; });
+
+          hydrateLookups({ items: newItems, spells: newSpells, monsters: newMonsters });
 
           set({ contentLoaded: true });
           console.log("Content initialized from Firestore.");
@@ -320,10 +304,10 @@ const useGameStore = create((set, get) => ({
            const newHp = Math.max(0, character.hp.current - damage);
            updateCharacter({ hp: { ...character.hp, current: newHp } });
 
-           addToLog({
-             text: `${currentCombatant.name} attacks you! Rolled ${roll.total} (vs AC ${character.ac}). HIT! You take ${damage} damage.`,
-             type: 'combat'
-           });
+            addToLog({
+              text: `${currentCombatant.name} attacks you! Rolled ${roll.total} (vs AC ${character.ac}). HIT! You take ${damage} damage.`,
+              type: 'combat'
+            });
 
            if (newHp === 0) {
              addToLog({ text: "You have been defeated!", type: 'combat' });

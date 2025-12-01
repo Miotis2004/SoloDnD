@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import useGameStore, { monsterLookup } from '../store/useGameStore';
+import useGameStore from '../store/useGameStore';
+import { monsterLookup } from '../store/contentLookups';
 import defaultAdventureData from '../data/adventure.json';
 
 // This component doesn't render UI, it manages the logic bridge between the Store and the JSON
