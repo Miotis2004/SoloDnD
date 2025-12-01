@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import useGameStore, { spellLookup } from '../store/useGameStore';
+import useGameStore from '../store/useGameStore';
+import { spellLookup } from '../store/contentLookups';
 import useAuthStore from '../store/useAuthStore';
 import { Sword, Shield, Book, Heart, Sparkles, Footprints, Flame, Skull, Moon, Sun, Hammer, Scroll } from 'lucide-react';
 

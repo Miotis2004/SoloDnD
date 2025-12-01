@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import useGameStore, { itemLookup } from '../store/useGameStore';
+import useGameStore from '../store/useGameStore';
+import { itemLookup } from '../store/contentLookups';
 import Card from './Card';
 import { Shield, Heart, Activity, Briefcase, User, Check, X, MousePointer } from 'lucide-react';
 
