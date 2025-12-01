@@ -8,6 +8,33 @@ const CollectionEditor = ({ collectionName, title }) => {
   const [editJson, setEditJson] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const templates = {
+    [AdminService.COLLECTIONS.CAMPAIGNS]: (id) => ({
+      id,
+      title: 'New Campaign',
+      description: 'Describe the campaign goal, tone, and expectations.',
+      price: 0,
+      adventureOrder: []
+    }),
+    [AdminService.COLLECTIONS.ADVENTURES]: (id) => ({
+      id,
+      title: 'New Adventure',
+      start_node: 'intro',
+      nodes: {
+        intro: {
+          text: 'Opening scene description.',
+          choices: []
+        }
+      }
+    }),
+    default: (id) => ({ id, name: 'New Item' })
+  };
+
+  const buildTemplate = (id) => {
+    if (templates[collectionName]) return templates[collectionName](id);
+    return templates.default(id);
+  };
+
   const fetchItems = async () => {
     setLoading(true);
     const data = await AdminService.getAllContent(collectionName);
@@ -31,7 +58,7 @@ const CollectionEditor = ({ collectionName, title }) => {
       if (!data.id) return alert("JSON must contain an 'id' field.");
 
       await AdminService.saveContent(collectionName, data.id, data);
-      setEditingId(null);
+      setEditingId(data.id);
       fetchItems();
     } catch (e) {
       alert("Invalid JSON: " + e.message);
@@ -41,7 +68,7 @@ const CollectionEditor = ({ collectionName, title }) => {
   const handleCreate = () => {
       const newId = `new_${Date.now()}`;
       setEditingId(newId);
-      setEditJson(JSON.stringify({ id: newId, name: "New Item" }, null, 2));
+      setEditJson(JSON.stringify(buildTemplate(newId), null, 2));
   };
 
   return (
