@@ -2,7 +2,7 @@ import React from 'react';
 import useGameStore from '../store/useGameStore';
 import Card from './Card';
 import { Sword, Hand, Zap, ArrowLeft, BookOpen } from 'lucide-react';
-import { spellLookup } from '../store/useGameStore';
+import { spellLookup } from '../store/contentLookups';
 
 const ActionButton = ({ icon, label, onClick, variant = 'default', disabled = false, subtitle = null }) => {
   const Icon = icon;
