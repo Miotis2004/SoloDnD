@@ -37,7 +37,8 @@ const initialCharacter = {
     offHand: null,
     body: null
   },
-  spells: []
+  spells: [],
+  completedAdventures: []
 };
 
 const useGameStore = create((set, get) => ({
@@ -732,6 +733,35 @@ const useGameStore = create((set, get) => ({
     }));
   },
 
+  completeAdventure: (adventureId) => {
+      if (!adventureId) return;
+      const { addToLog } = get();
+      let added = false;
+
+      set((state) => {
+          const completed = state.character.completedAdventures || [];
+          if (completed.includes(adventureId)) return {};
+          added = true;
+          return {
+              character: {
+                  ...state.character,
+                  completedAdventures: [...completed, adventureId]
+              }
+          };
+      });
+
+      if (added) {
+          addToLog({ text: `Adventure '${adventureId}' marked as completed.`, type: 'system' });
+      }
+  },
+
+  completeCurrentAdventure: () => {
+      const { currentAdventureId, completeAdventure } = get();
+      if (currentAdventureId) {
+          completeAdventure(currentAdventureId);
+      }
+  },
+
   saveGame: async (uid) => {
       const { character, log, currentNodeId, currentAdventureId, currentCampaignId, gameMode, combat } = get();
 
@@ -793,6 +823,8 @@ const useGameStore = create((set, get) => ({
             // Ensure Name exists
             if (!charObj.name) charObj.name = "Unknown Hero";
 
+            if (!charObj.completedAdventures) charObj.completedAdventures = [];
+
             list.push(charObj);
         });
         set({ characterList: list });
@@ -817,8 +849,10 @@ const useGameStore = create((set, get) => ({
         }
 
         if (data) {
+            const loadedCharacter = { ...initialCharacter, ...data.character };
+            if (!loadedCharacter.completedAdventures) loadedCharacter.completedAdventures = [];
             set({
-                character: data.character,
+                character: loadedCharacter,
                 log: data.log,
                 currentNodeId: data.currentNodeId,
                 currentAdventureId: data.currentAdventureId,
