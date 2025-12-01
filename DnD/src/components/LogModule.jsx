@@ -9,22 +9,23 @@ const LogModule = () => {
   const speechRef = useRef(null);
   const utterancesRef = useRef([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechSupported] = useState(
+    () => typeof window !== 'undefined' && 'speechSynthesis' in window
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [log]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    if (speechSupported) {
       speechRef.current = window.speechSynthesis;
-      setSpeechSupported(true);
     }
 
     return () => {
       speechRef.current?.cancel();
     };
-  }, []);
+  }, [speechSupported]);
 
   const stopSpeech = () => {
     speechRef.current?.cancel();
